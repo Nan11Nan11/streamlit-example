@@ -12,102 +12,130 @@ mode = st.sidebar.selectbox("Select Mode", ["Student", "Instructor"])
 # ---------------------------
 # STUDENT MODE
 # ---------------------------
-if mode == "Student":
+st.subheader("🧪 Full Quiz")
 
-    st.header("👩‍🎓 Student Portal")
+responses = {}
 
-    name = st.text_input("Enter Name")
-    student_id = st.text_input("Enter Student ID")
+# ----------------------
+# Q1 Mean
+# ----------------------
+st.markdown("### Q1: Compute Mean of X1 (Numerical)")
+responses["Q1"] = st.number_input("Enter Mean of X1")
 
-    def generate_dataset(seed):
-        np.random.seed(seed)
-        data = pd.DataFrame({
-            "X1": np.random.normal(50, 10, 100),
-            "X2": np.random.normal(50, 3, 100),
-            "X3": np.random.normal(50, 25, 100),
-            "X4": np.random.lognormal(3, 0.5, 100)
-        })
-        return data.round(2)
+# ----------------------
+# Q2 SD
+# ----------------------
+st.markdown("### Q2: Compute Standard Deviation of X3 (Numerical)")
+responses["Q2"] = st.number_input("Enter SD of X3")
 
-    if st.button("Generate Dataset"):
+# ----------------------
+# Q3 CV Interpretation
+# ----------------------
+st.markdown("### Q3: Which variable is most volatile? (Interpretation)")
+responses["Q3"] = st.text_area("Explain your answer")
 
-        if student_id == "":
-            st.warning("Please enter Student ID")
-        else:
-            seed = sum([ord(c) for c in student_id])
-            df = generate_dataset(seed)
+# ----------------------
+# Q4 Concept (Mean vs Median)
+# ----------------------
+st.markdown("### Q4: When is median preferred over mean?")
+responses["Q4"] = st.text_area("Answer")
 
-            st.session_state["data"] = df
+# ----------------------
+# Q5 MCQ
+# ----------------------
+st.markdown("### Q5: Coefficient of Variation measures:")
+responses["Q5"] = st.radio(
+    "Choose one:",
+    ["Central tendency", "Dispersion", "Skewness"]
+)
 
-            st.subheader("📊 Your Dataset")
-            st.dataframe(df)
+# ----------------------
+# Q6 Skew
+# ----------------------
+st.markdown("### Q6: Identify skewness of X4")
+responses["Q6"] = st.text_area("Is it positive/negative? Explain")
 
-    if "data" in st.session_state:
+# ----------------------
+# Q7 Normality
+# ----------------------
+st.markdown("### Q7: If p-value > 0.05, data is?")
+responses["Q7"] = st.radio(
+    "Choose one:",
+    ["Normal", "Not normal"]
+)
 
-        df = st.session_state["data"]
+# ----------------------
+# Q8 Probability
+# ----------------------
+st.markdown("### Q8: Compute probability using normal distribution (conceptual)")
+responses["Q8"] = st.text_area("Explain how you would compute it")
 
-        st.subheader("📝 Answer the Questions")
+# ----------------------
+# SUBMIT
+# ----------------------
+if st.button("Submit Full Quiz"):
 
-        mean_x1 = st.number_input("Mean of X1")
-        sd_x3 = st.number_input("Standard Deviation of X3")
+    st.subheader("📊 Evaluation Summary")
 
-        interpretation = st.text_area(
-            "Which variable is most volatile and why?"
-        )
+    total_score = 0
 
-if st.button("Submit Answers"):
-
+    # Correct values
     correct_mean = df["X1"].mean()
     correct_sd = df["X3"].std()
     cv = df.std() / df.mean()
     most_volatile = cv.idxmax()
 
-    numerical_score = 0
-    interpretation_score = 0
-
-    st.subheader("📘 Marking Scheme (Rubric)")
-    st.write("• Numerical Accuracy → 0.5 marks")
-    st.write("• Interpretation → 0.5 marks")
-    st.write("• Maximum Marks: 1")
-
-    st.subheader("📋 Feedback")
-
-    # ------------------------
-    # NUMERICAL CHECK (Mean + SD combined)
-    # ------------------------
-    if abs(mean_x1 - correct_mean) < 0.5 and abs(sd_x3 - correct_sd) < 0.5:
-        numerical_score = 0.5
-        st.success("✅ Numerical answers are correct")
+    # ----------------------
+    # Q1
+    # ----------------------
+    st.markdown("### Q1 Feedback")
+    if abs(responses["Q1"] - correct_mean) < 0.5:
+        st.success("Correct")
+        total_score += 1
     else:
-        st.error("❌ Numerical answers are incorrect")
+        st.error(f"Incorrect. Correct: {round(correct_mean,2)}")
 
-        if abs(mean_x1 - correct_mean) >= 0.5:
-            st.write(f"Mean of X1 should be: {round(correct_mean,2)}")
-            st.write("💡 Use AVERAGE() correctly")
-
-        if abs(sd_x3 - correct_sd) >= 0.5:
-            st.write(f"SD of X3 should be: {round(correct_sd,2)}")
-            st.write("💡 Use STDEV.S()")
-
-    # ------------------------
-    # INTERPRETATION CHECK
-    # ------------------------
-    if most_volatile.lower() in interpretation.lower():
-        interpretation_score = 0.5
-        st.success("✅ Correct interpretation")
+    # ----------------------
+    # Q2
+    # ----------------------
+    st.markdown("### Q2 Feedback")
+    if abs(responses["Q2"] - correct_sd) < 0.5:
+        st.success("Correct")
+        total_score += 1
     else:
-        st.error("❌ Incorrect interpretation")
-        st.write(f"Correct answer: {most_volatile} is most volatile")
-        st.write("💡 Use coefficient of variation (SD/Mean)")
+        st.error(f"Incorrect. Correct: {round(correct_sd,2)}")
 
-    total_score = numerical_score + interpretation_score
+    # ----------------------
+    # Q3
+    # ----------------------
+    st.markdown("### Q3 Feedback")
+    if most_volatile.lower() in responses["Q3"].lower():
+        st.success("Correct interpretation")
+        total_score += 1
+    else:
+        st.error(f"Incorrect. {most_volatile} is most volatile")
 
-    st.subheader("🎯 Final Result")
-    st.write(f"**Your Score: {total_score} / 1**")
+    # ----------------------
+    # Q5
+    # ----------------------
+    st.markdown("### Q5 Feedback")
+    if responses["Q5"] == "Dispersion":
+        st.success("Correct")
+        total_score += 1
+    else:
+        st.error("Incorrect. CV measures dispersion")
 
-    st.write("📊 Breakdown:")
-    st.write(f"- Numerical: {numerical_score} / 0.5")
-    st.write(f"- Interpretation: {interpretation_score} / 0.5")
+    # ----------------------
+    # Q7
+    # ----------------------
+    st.markdown("### Q7 Feedback")
+    if responses["Q7"] == "Normal":
+        st.success("Correct")
+        total_score += 1
+    else:
+        st.error("Incorrect. p > 0.05 ⇒ normal")
+
+    st.subheader(f"🎯 Final Score: {total_score} / 8")
 # ---------------------------
 # INSTRUCTOR MODE (OLD APP)
 # ---------------------------
