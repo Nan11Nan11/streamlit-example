@@ -2,96 +2,109 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from hashlib import md5
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.feature_extraction.text import TfidfVectorizer
 
-st.title("📊 Business Analytics LMS - Pilot")
+st.set_page_config(page_title="Business Analytics LMS", layout="wide")
 
-uploaded_files = st.file_uploader(
-    "Upload student Excel files",
-    accept_multiple_files=True
-)
+st.title("📊 Business Analytics LMS")
 
-results = []
-texts = []
-names = []
+mode = st.sidebar.selectbox("Select Mode", ["Student", "Instructor"])
 
-def compute_answers(df):
-    return {
-        "mean": df.mean(),
-        "std": df.std(),
-        "cv": df.std() / df.mean()
-    }
+# ---------------------------
+# STUDENT MODE
+# ---------------------------
+if mode == "Student":
 
-def hash_dataset(df):
-    return md5(df.to_csv().encode()).hexdigest()
+    st.header("👩‍🎓 Student Portal")
 
-if uploaded_files:
+    name = st.text_input("Enter Name")
+    student_id = st.text_input("Enter Student ID")
 
-    dataset_hashes = {}
+    def generate_dataset(seed):
+        np.random.seed(seed)
+        data = pd.DataFrame({
+            "X1": np.random.normal(50, 10, 100),
+            "X2": np.random.normal(50, 3, 100),
+            "X3": np.random.normal(50, 25, 100),
+            "X4": np.random.lognormal(3, 0.5, 100)
+        })
+        return data.round(2)
 
-    for file in uploaded_files:
-        try:
-            df = pd.read_excel(file, sheet_name="DATA")
+    if st.button("Generate Dataset"):
 
-            name = file.name
-            names.append(name)
+        if student_id == "":
+            st.warning("Please enter Student ID")
+        else:
+            seed = sum([ord(c) for c in student_id])
+            df = generate_dataset(seed)
 
-            correct = compute_answers(df)
+            st.session_state["data"] = df
 
-            student_df = pd.read_excel(file, sheet_name="CALCULATIONS")
-            text_df = pd.read_excel(file, sheet_name="INTERPRETATION")
+            st.subheader("📊 Your Dataset")
+            st.dataframe(df)
 
-            backup_df = pd.read_excel(file, sheet_name="BACKUP")
+    if "data" in st.session_state:
 
-            backup_present = not backup_df.empty
+        df = st.session_state["data"]
 
-            if not backup_present:
-                score = 0
-                remark = "No backup"
-            else:
-                score = 0
+        st.subheader("📝 Answer the Questions")
 
-                # Numerical check (simplified)
-                if np.isclose(student_df.iloc[0,0], correct["mean"].iloc[0]):
-                    score += 0.5
+        mean_x1 = st.number_input("Mean of X1")
+        sd_x3 = st.number_input("Standard Deviation of X3")
 
-                # Interpretation check
-                text = str(text_df.iloc[0,0])
-                texts.append(text)
+        interpretation = st.text_area(
+            "Which variable is most volatile and why?"
+        )
 
-                if "volatile" in text.lower():
-                    score += 0.5
+        if st.button("Submit Answers"):
 
-                remark = "Checked"
+            correct_mean = df["X1"].mean()
+            correct_sd = df["X3"].std()
+            cv = df.std() / df.mean()
 
-            # Dataset hash
-            d_hash = hash_dataset(df)
+            most_volatile = cv.idxmax()
 
-            if d_hash in dataset_hashes:
-                flag = "⚠️ Same dataset"
-            else:
-                dataset_hashes[d_hash] = name
-                flag = ""
+            score = 0
 
-            results.append({
-                "Student": name,
-                "Score": score,
-                "Backup": backup_present,
-                "Flag": flag,
-                "Remark": remark
-            })
+            if abs(mean_x1 - correct_mean) < 0.5:
+                score += 0.5
 
-        except Exception as e:
-            st.error(f"Error processing {file.name}: {e}")
+            if abs(sd_x3 - correct_sd) < 0.5:
+                score += 0.5
 
-    result_df = pd.DataFrame(results)
-    st.dataframe(result_df)
+            if most_volatile.lower() in interpretation.lower():
+                score += 0.5
 
-    # Text similarity check
-    if len(texts) > 1:
-        vec = TfidfVectorizer().fit_transform(texts)
-        sim = cosine_similarity(vec)
+            st.success(f"Your Score: {score} / 1.5")
 
-        st.subheader("🧠 Plagiarism Similarity Matrix")
-        st.write(pd.DataFrame(sim, index=names, columns=names))
+# ---------------------------
+# INSTRUCTOR MODE (OLD APP)
+# ---------------------------
+else:
+
+    st.header("👨‍🏫 Instructor Dashboard")
+
+    uploaded_files = st.file_uploader(
+        "Upload student Excel files",
+        accept_multiple_files=True
+    )
+
+    results = []
+
+    if uploaded_files:
+
+        for file in uploaded_files:
+
+            try:
+                df = pd.read_excel(file, sheet_name="DATA")
+
+                score = np.random.choice([0, 0.5, 1])  # placeholder
+
+                results.append({
+                    "Student": file.name,
+                    "Score": score
+                })
+
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+        st.dataframe(pd.DataFrame(results))
