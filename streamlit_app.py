@@ -1,40 +1,97 @@
-import altair as alt
-import numpy as np
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import numpy as np
+from hashlib import md5
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import TfidfVectorizer
 
-"""
-# Welcome to Streamlit!
+st.title("📊 Business Analytics LMS - Pilot")
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:.
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
+uploaded_files = st.file_uploader(
+    "Upload student Excel files",
+    accept_multiple_files=True
+)
 
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+results = []
+texts = []
+names = []
 
-num_points = st.slider("Number of points in spiral", 1, 10000, 1100)
-num_turns = st.slider("Number of turns in spiral", 1, 300, 31)
+def compute_answers(df):
+    return {
+        "mean": df.mean(),
+        "std": df.std(),
+        "cv": df.std() / df.mean()
+    }
 
-indices = np.linspace(0, 1, num_points)
-theta = 2 * np.pi * num_turns * indices
-radius = indices
+def hash_dataset(df):
+    return md5(df.to_csv().encode()).hexdigest()
 
-x = radius * np.cos(theta)
-y = radius * np.sin(theta)
+if uploaded_files:
 
-df = pd.DataFrame({
-    "x": x,
-    "y": y,
-    "idx": indices,
-    "rand": np.random.randn(num_points),
-})
+    dataset_hashes = {}
 
-st.altair_chart(alt.Chart(df, height=700, width=700)
-    .mark_point(filled=True)
-    .encode(
-        x=alt.X("x", axis=None),
-        y=alt.Y("y", axis=None),
-        color=alt.Color("idx", legend=None, scale=alt.Scale()),
-        size=alt.Size("rand", legend=None, scale=alt.Scale(range=[1, 150])),
-    ))
+    for file in uploaded_files:
+        try:
+            df = pd.read_excel(file, sheet_name="DATA")
+
+            name = file.name
+            names.append(name)
+
+            correct = compute_answers(df)
+
+            student_df = pd.read_excel(file, sheet_name="CALCULATIONS")
+            text_df = pd.read_excel(file, sheet_name="INTERPRETATION")
+
+            backup_df = pd.read_excel(file, sheet_name="BACKUP")
+
+            backup_present = not backup_df.empty
+
+            if not backup_present:
+                score = 0
+                remark = "No backup"
+            else:
+                score = 0
+
+                # Numerical check (simplified)
+                if np.isclose(student_df.iloc[0,0], correct["mean"].iloc[0]):
+                    score += 0.5
+
+                # Interpretation check
+                text = str(text_df.iloc[0,0])
+                texts.append(text)
+
+                if "volatile" in text.lower():
+                    score += 0.5
+
+                remark = "Checked"
+
+            # Dataset hash
+            d_hash = hash_dataset(df)
+
+            if d_hash in dataset_hashes:
+                flag = "⚠️ Same dataset"
+            else:
+                dataset_hashes[d_hash] = name
+                flag = ""
+
+            results.append({
+                "Student": name,
+                "Score": score,
+                "Backup": backup_present,
+                "Flag": flag,
+                "Remark": remark
+            })
+
+        except Exception as e:
+            st.error(f"Error processing {file.name}: {e}")
+
+    result_df = pd.DataFrame(results)
+    st.dataframe(result_df)
+
+    # Text similarity check
+    if len(texts) > 1:
+        vec = TfidfVectorizer().fit_transform(texts)
+        sim = cosine_similarity(vec)
+
+        st.subheader("🧠 Plagiarism Similarity Matrix")
+        st.write(pd.DataFrame(sim, index=names, columns=names))
