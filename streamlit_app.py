@@ -62,44 +62,52 @@ if st.button("Submit Answers"):
     cv = df.std() / df.mean()
     most_volatile = cv.idxmax()
 
-    score = 0
+    numerical_score = 0
+    interpretation_score = 0
+
+    st.subheader("📘 Marking Scheme (Rubric)")
+    st.write("• Numerical Accuracy → 0.5 marks")
+    st.write("• Interpretation → 0.5 marks")
+    st.write("• Maximum Marks: 1")
 
     st.subheader("📋 Feedback")
 
     # ------------------------
-    # MEAN CHECK
+    # NUMERICAL CHECK (Mean + SD combined)
     # ------------------------
-    if abs(mean_x1 - correct_mean) < 0.5:
-        score += 0.5
-        st.success("✅ Mean of X1 is correct")
+    if abs(mean_x1 - correct_mean) < 0.5 and abs(sd_x3 - correct_sd) < 0.5:
+        numerical_score = 0.5
+        st.success("✅ Numerical answers are correct")
     else:
-        st.error("❌ Mean of X1 is incorrect")
-        st.write(f"✔ Correct value: {round(correct_mean,2)}")
-        st.write("💡 Hint: Use AVERAGE() on full X1 column")
+        st.error("❌ Numerical answers are incorrect")
 
-    # ------------------------
-    # SD CHECK
-    # ------------------------
-    if abs(sd_x3 - correct_sd) < 0.5:
-        score += 0.5
-        st.success("✅ Standard deviation of X3 is correct")
-    else:
-        st.error("❌ Standard deviation of X3 is incorrect")
-        st.write(f"✔ Correct value: {round(correct_sd,2)}")
-        st.write("💡 Hint: Use STDEV.S() not STDEV.P")
+        if abs(mean_x1 - correct_mean) >= 0.5:
+            st.write(f"Mean of X1 should be: {round(correct_mean,2)}")
+            st.write("💡 Use AVERAGE() correctly")
+
+        if abs(sd_x3 - correct_sd) >= 0.5:
+            st.write(f"SD of X3 should be: {round(correct_sd,2)}")
+            st.write("💡 Use STDEV.S()")
 
     # ------------------------
     # INTERPRETATION CHECK
     # ------------------------
     if most_volatile.lower() in interpretation.lower():
-        score += 0.5
-        st.success("✅ Correct interpretation of volatility")
+        interpretation_score = 0.5
+        st.success("✅ Correct interpretation")
     else:
         st.error("❌ Incorrect interpretation")
-        st.write(f"✔ Correct answer: {most_volatile} is most volatile")
-        st.write("💡 Hint: Compare coefficient of variation (SD/Mean)")
+        st.write(f"Correct answer: {most_volatile} is most volatile")
+        st.write("💡 Use coefficient of variation (SD/Mean)")
 
-    st.subheader(f"🎯 Final Score: {score} / 1.5")
+    total_score = numerical_score + interpretation_score
+
+    st.subheader("🎯 Final Result")
+    st.write(f"**Your Score: {total_score} / 1**")
+
+    st.write("📊 Breakdown:")
+    st.write(f"- Numerical: {numerical_score} / 0.5")
+    st.write(f"- Interpretation: {interpretation_score} / 0.5")
 # ---------------------------
 # INSTRUCTOR MODE (OLD APP)
 # ---------------------------
