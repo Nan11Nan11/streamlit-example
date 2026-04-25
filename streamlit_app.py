@@ -55,7 +55,7 @@ if mode == "Student":
             "Which variable is most volatile and why?"
         )
 
-        if st.button("Submit Answers"):
+    if st.button("Submit Answers"):
 
     correct_mean = df["X1"].mean()
     correct_sd = df["X3"].std()
