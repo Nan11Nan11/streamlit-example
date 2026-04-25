@@ -57,25 +57,49 @@ if mode == "Student":
 
         if st.button("Submit Answers"):
 
-            correct_mean = df["X1"].mean()
-            correct_sd = df["X3"].std()
-            cv = df.std() / df.mean()
+    correct_mean = df["X1"].mean()
+    correct_sd = df["X3"].std()
+    cv = df.std() / df.mean()
+    most_volatile = cv.idxmax()
 
-            most_volatile = cv.idxmax()
+    score = 0
 
-            score = 0
+    st.subheader("📋 Feedback")
 
-            if abs(mean_x1 - correct_mean) < 0.5:
-                score += 0.5
+    # ------------------------
+    # MEAN CHECK
+    # ------------------------
+    if abs(mean_x1 - correct_mean) < 0.5:
+        score += 0.5
+        st.success("✅ Mean of X1 is correct")
+    else:
+        st.error("❌ Mean of X1 is incorrect")
+        st.write(f"✔ Correct value: {round(correct_mean,2)}")
+        st.write("💡 Hint: Use AVERAGE() on full X1 column")
 
-            if abs(sd_x3 - correct_sd) < 0.5:
-                score += 0.5
+    # ------------------------
+    # SD CHECK
+    # ------------------------
+    if abs(sd_x3 - correct_sd) < 0.5:
+        score += 0.5
+        st.success("✅ Standard deviation of X3 is correct")
+    else:
+        st.error("❌ Standard deviation of X3 is incorrect")
+        st.write(f"✔ Correct value: {round(correct_sd,2)}")
+        st.write("💡 Hint: Use STDEV.S() not STDEV.P")
 
-            if most_volatile.lower() in interpretation.lower():
-                score += 0.5
+    # ------------------------
+    # INTERPRETATION CHECK
+    # ------------------------
+    if most_volatile.lower() in interpretation.lower():
+        score += 0.5
+        st.success("✅ Correct interpretation of volatility")
+    else:
+        st.error("❌ Incorrect interpretation")
+        st.write(f"✔ Correct answer: {most_volatile} is most volatile")
+        st.write("💡 Hint: Compare coefficient of variation (SD/Mean)")
 
-            st.success(f"Your Score: {score} / 1.5")
-
+    st.subheader(f"🎯 Final Score: {score} / 1.5")
 # ---------------------------
 # INSTRUCTOR MODE (OLD APP)
 # ---------------------------
