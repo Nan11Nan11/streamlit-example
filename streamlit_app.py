@@ -72,11 +72,11 @@ if mode == "Student":
 
         # Q3
         st.markdown("### Q3: Which variable is most volatile? Explain")
-        responses["Q3"] = st.text_area("Answer")
+        responses["Q3"] = st.text_area("Answer Q3", key="q3")
 
         # Q4
         st.markdown("### Q4: When is median preferred over mean?")
-        responses["Q4"] = st.text_area("Answer")
+        responses["Q4"] = st.text_area("Answer Q4", key="q4")
 
         # Q5
         st.markdown("### Q5: Coefficient of Variation measures:")
@@ -87,7 +87,7 @@ if mode == "Student":
 
         # Q6
         st.markdown("### Q6: Identify skewness of X4")
-        responses["Q6"] = st.text_area("Answer")
+        responses["Q6"] = st.text_area("Answer Q6", key="q6")
 
         # Q7
         st.markdown("### Q7: If p-value > 0.05, data is?")
@@ -98,7 +98,7 @@ if mode == "Student":
 
         # Q8
         st.markdown("### Q8: How do you compute probability using normal distribution?")
-        responses["Q8"] = st.text_area("Answer")
+        responses["Q8"] = st.text_area("Answer Q8", key="q8")
 
         # =====================================================
         # SUBMIT BUTTON
