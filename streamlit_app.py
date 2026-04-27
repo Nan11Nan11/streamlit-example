@@ -109,79 +109,67 @@ Higher SD ⇒ more variability.
             }
 
         elif difficulty == "Medium":
-            filt = df[cat].unique()[0]
+    filt = df[cat].unique()[0]
 
-            return {
-                "q": f"""
-Filter dataset where {cat} = {filt}
+    return {
+        "q": f"""
+Using the dataset:
 
-Then:
-1. Compute mean of {var}
-2. Compute P({var} < mean) assuming normal distribution
+1. Filter rows where {cat} = {filt}
+2. Compute mean (μ) and standard deviation (σ) of {var}
+3. Compute:
 
-Enter final probability only
+P({var} < μ) assuming normal distribution
+
+Enter final probability
 """,
-                "type":"numeric",
-                "answer":0.5,
-                "explanation":"""
-Even after filtering, for normal distribution:
+        "type":"numeric",
+        "answer":0.5,
+        "explanation":"""
+Even after filtering, for ANY normal distribution:
+
 P(X < mean) = 0.5
 
-Key idea: symmetry of normal distribution
+Key insight:
+Student must compute mean first → then apply concept.
 """
-            }
+    }
 
-        else:  # HARD
-            x = float(np.random.choice(df[var]))
-            mu, sd = df[var].mean(), df[var].std()
+else:  # HARD
+    filt = df[cat].unique()[0]
+    x = float(np.random.choice(df[var]))
 
-            return {
-                "q": f"""
-Variable: {var}
+    return {
+        "q": f"""
+Using the dataset:
 
-Mean = {round(mu,2)}, SD = {round(sd,2)}
+1. Filter rows where {cat} = {filt}
+2. Compute mean (μ) and standard deviation (σ) of {var}
+3. Compute:
 
-Compute theoretical probability:
+P({var} < {round(x,2)}) assuming normal distribution
 
-P({var} < {round(x,2)})
-
-Enter value
+Enter final probability
 """,
-                "type":"numeric",
-                "answer": stats.norm.cdf(x,mu,sd),
-                "explanation":"""
-Use normal CDF:
+        "type":"numeric",
+        "answer": stats.norm.cdf(x, df[var].mean(), df[var].std()),
+        "explanation": f"""
+Steps:
 
-Z = (X - μ)/σ
+1. Filter dataset
+2. Compute μ and σ manually
+3. Standardize:
 
-Then compute probability from normal distribution.
+Z = (X - μ) / σ
+
+4. Use normal table / CDF
+
+This tests:
+✔ Data handling  
+✔ Parameter estimation  
+✔ Probability computation  
 """
-            }
-
-    # Q3: interpretation
-    if qtype == 2:
-        skew = stats.skew(df[var])
-        kurt = stats.kurtosis(df[var])
-
-        return {
-            "q": f"""
-Variable {var}:
-
-Skewness = {round(skew,2)}
-Kurtosis = {round(kurt,2)}
-
-Interpret distribution
-""",
-            "type":"text",
-            "answer":"",
-            "explanation":"""
-Skew > 0 ⇒ right skew  
-Skew < 0 ⇒ left skew  
-
-Kurtosis > 0 ⇒ heavy tails  
-Kurtosis < 0 ⇒ light tails
-"""
-        }
+    }
 
 # -------------------------
 # OTHER MODULES (CLEAN)
