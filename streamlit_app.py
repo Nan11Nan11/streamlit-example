@@ -135,11 +135,11 @@ if mode == "Student":
 
             if st.button("Submit Full Quiz"):
 
-    total = 0
-    correct_mean = df["X1"].mean()
-    correct_sd = df["X3"].std()
-    cv = df.std() / df.mean()
-    most_vol = cv.idxmax()
+                total = 0
+                correct_mean = df["X1"].mean()
+                correct_sd = df["X3"].std()
+                cv = df.std() / df.mean()
+                most_vol = cv.idxmax()
 
     if abs(responses["Q1"] - correct_mean) < 0.5:
         total += 1
