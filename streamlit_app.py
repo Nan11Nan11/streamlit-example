@@ -54,7 +54,14 @@ if mode == "Student":
 
         st.subheader("📊 Your Dataset (first 10 rows)")
         st.dataframe(df.head(10))
+        csv = df.to_csv(index=False).encode('utf-8')
 
+        st.download_button(
+        label="📥 Download Full Dataset (100 rows)",
+        data=csv,
+        file_name="dataset.csv",
+        mime="text/csv"
+        )
         # =====================================================
         # FULL QUIZ
         # =====================================================
