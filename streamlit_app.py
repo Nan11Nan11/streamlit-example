@@ -77,14 +77,57 @@ def get_question(module, qtype):
 
         # TYPE 2: probability
         if qtype == 1:
-            x = np.random.choice(df["Marketing"])
-            mu, sd = df["Marketing"].mean(), df["Marketing"].std()
 
-            return {
-                "q": f"Compute P(X < {round(x,2)}) assuming normal distribution",
+            var = np.random.choice(["Marketing","Cost","Satisfaction"])
+            x = float(np.random.choice(df[var]))
+        
+            mu = df[var].mean()
+            sd = df[var].std()
+        
+            # randomly choose type of probability
+            prob_type = np.random.choice(["theoretical","observed"])
+        
+            if prob_type == "theoretical":
+                return {
+                    "q": f"""
+        For variable {var}:
+        
+        Mean (μ) = {round(mu,2)}  
+        Standard Deviation (σ) = {round(sd,2)}  
+        
+        Assuming NORMAL distribution, compute:  
+        P({var} < {round(x,2)})
+        """,
+                    "type":"numeric",
+                    "answer": stats.norm.cdf(x, mu, sd),
+                    "explanation": f"""
+        This is a THEORETICAL probability.
+        
+        We assume normal distribution and compute:
+        Z = (X - μ) / σ
+        
+        Then use standard normal CDF.
+        """
+                }
+        
+            else:
+                observed_prob = (df[var] < x).mean()
+        
+                return {
+                    "q": f"""
+    For variable {var}:
+    
+    Using ACTUAL DATA (not normal assumption), compute:  
+    P({var} < {round(x,2)})
+    """,
                 "type":"numeric",
-                "answer": stats.norm.cdf(x,mu,sd),
-                "explanation":"Normal distribution CDF"
+                "answer": observed_prob,
+                "explanation": f"""
+    This is an OBSERVED probability.
+    
+    We count proportion of values less than {round(x,2)}:
+    P = (Number of observations < X) / Total observations
+    """
             }
 
         # TYPE 3: normality + skew
