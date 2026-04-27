@@ -151,9 +151,7 @@ Key learning:
 Even after filtering, the theoretical probability at mean is always 0.5.
 """
 }
-                "type":"numeric",
-                "answer":0.5,
-                "explanation":"Still normal ⇒ 0.5"
+                
             }
 
         else:  # HARD
