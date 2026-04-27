@@ -117,19 +117,40 @@ Higher SD ⇒ more variability.
             }
 
         elif difficulty == "Medium":
-            filt = df[df[cat]==df[cat].unique()[0]]
-            mu = filt[var].mean()
-            sd = filt[var].std()
-            x = mu
+            filt_value = df[cat].unique()[0]
 
-            return {
-                "q": f"""
-For subset where {cat} = {filt[cat].iloc[0]}:
+return {
+    "q": f"""
+Using the dataset:
 
-Mean = {round(mu,2)}, SD = {round(sd,2)}
+1. Filter observations where {cat} = {filt_value}  
+2. Compute mean and standard deviation of {var}  
+3. Assuming normal distribution, compute:
 
-Compute P({var} < mean)
+P({var} < mean)
+
+Enter ONLY the final probability
 """,
+    "type":"numeric",
+    "answer":0.5,
+    "explanation": f"""
+Step-by-step solution:
+
+1. Filter dataset where {cat} = {filt_value}
+
+2. Compute:
+   Mean (μ) and Standard Deviation (σ) of {var}
+
+3. Since we are computing:
+   P(X < mean)
+
+For ANY normal distribution:
+   P(X < μ) = 0.5
+
+Key learning:
+Even after filtering, the theoretical probability at mean is always 0.5.
+"""
+}
                 "type":"numeric",
                 "answer":0.5,
                 "explanation":"Still normal ⇒ 0.5"
