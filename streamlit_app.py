@@ -62,6 +62,69 @@ if mode == "Student":
         file_name="dataset.csv",
         mime="text/csv"
         )
+        st.subheader("🔥 Streak Mode (Get 3 correct in a row)")
+
+if "streak" not in st.session_state:
+    st.session_state["streak"] = 0
+
+df = st.session_state["data"]
+
+# Random question selection
+question_type = np.random.choice(["mean", "sd", "concept"])
+
+st.write(f"Current Streak: {st.session_state['streak']} / 3")
+
+# ----------------------
+# QUESTION TYPES
+# ----------------------
+
+if question_type == "mean":
+    answer = st.number_input("Compute Mean of X1", key="streak_mean")
+
+    if st.button("Submit Streak Answer", key="btn1"):
+        correct = df["X1"].mean()
+
+        if abs(answer - correct) < 0.5:
+            st.success("Correct!")
+            st.session_state["streak"] += 1
+        else:
+            st.error(f"Wrong! Correct: {round(correct,2)}")
+            st.session_state["streak"] = 0
+
+elif question_type == "sd":
+    answer = st.number_input("Compute SD of X3", key="streak_sd")
+
+    if st.button("Submit Streak Answer", key="btn2"):
+        correct = df["X3"].std()
+
+        if abs(answer - correct) < 0.5:
+            st.success("Correct!")
+            st.session_state["streak"] += 1
+        else:
+            st.error(f"Wrong! Correct: {round(correct,2)}")
+            st.session_state["streak"] = 0
+
+elif question_type == "concept":
+    answer = st.radio(
+        "Coefficient of variation measures:",
+        ["Central tendency", "Dispersion", "Skewness"],
+        key="streak_mcq"
+    )
+
+    if st.button("Submit Streak Answer", key="btn3"):
+        if answer == "Dispersion":
+            st.success("Correct!")
+            st.session_state["streak"] += 1
+        else:
+            st.error("Wrong! Correct: Dispersion")
+            st.session_state["streak"] = 0
+
+# ----------------------
+# STREAK COMPLETE
+# ----------------------
+
+if st.session_state["streak"] >= 3:
+    st.success("🎉 Streak completed! You unlocked next level!")
         # =====================================================
         # FULL QUIZ
         # =====================================================
