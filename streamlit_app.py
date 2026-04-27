@@ -13,7 +13,7 @@ mode = st.sidebar.selectbox("Select Mode", ["Student", "Instructor"])
 # =====================================================
 if mode == "Student":
 
-    st.header("👩‍🎓 Student Quiz Agent")
+    st.header("👩‍🎓 Student Learning Agent")
 
     name = st.text_input("Enter Name")
     student_id = st.text_input("Enter Student ID")
@@ -25,181 +25,202 @@ if mode == "Student":
         np.random.seed(seed)
         return pd.DataFrame({
             "X1": np.random.normal(50, 10, 100),
-            "X2": np.random.normal(50, 5, 100),
-            "X3": np.random.normal(50, 20, 100),
+            "X2": np.random.normal(60, 15, 100),
+            "X3": np.random.normal(40, 25, 100),
         }).round(2)
 
     if st.button("Generate Dataset"):
         if student_id == "":
             st.warning("Enter Student ID")
         else:
-            seed = sum([ord(c) for c in student_id])
+            seed = sum(ord(c) for c in student_id)
             st.session_state["data"] = generate_dataset(seed)
             st.session_state["streak"] = 0
+            st.session_state["current_q"] = None
             st.success("Dataset generated")
 
     # ----------------------------
-    # PROCEED IF DATA EXISTS
+    # MAIN FLOW
     # ----------------------------
     if "data" in st.session_state:
 
         df = st.session_state["data"]
 
-        st.subheader("Dataset Preview")
+        st.subheader("📊 Dataset Preview")
         st.dataframe(df.head())
-        # ----------------------------
-        # DOWNLOAD FULL DATASET
-        # ----------------------------
-        csv = df.to_csv(index=False).encode('utf-8')
 
-        st.download_button(
-        label="📥 Download Full Dataset",
-        data=csv,
-        file_name=f"dataset_{student_id}.csv",
-        mime="text/csv"
-        )
-        # ----------------------------
-        # STREAK MODE
-        # ----------------------------
-        st.subheader("🔥 Streak Mode (3 correct needed)")
+        # Download full dataset
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Full Dataset", csv, f"{student_id}.csv")
+
+        # =====================================================
+        # STREAK MODE (NO REPETITION)
+        # =====================================================
+        st.subheader("🔥 Streak Mode (3 correct in a row)")
 
         if "streak" not in st.session_state:
             st.session_state["streak"] = 0
 
+        if st.session_state["current_q"] is None:
+            st.session_state["current_q"] = np.random.choice(["mean", "sd", "cv"])
+
+        qtype = st.session_state["current_q"]
+
         st.write(f"Current Streak: {st.session_state['streak']} / 3")
 
-        qtype = np.random.choice(["mean", "sd", "concept"])
-
         if qtype == "mean":
-            ans = st.number_input("Mean of X1", key="s1")
-
-            if st.button("Submit Streak", key="sb1"):
-                correct = df["X1"].mean()
-                if abs(ans - correct) < 0.5:
-                    st.success("Correct")
-                    st.session_state["streak"] += 1
-                else:
-                    st.error(f"Wrong. Correct mean ≈ {round(correct,2)}")
-                    st.session_state["streak"] = 0
+            ans = st.number_input("Compute mean of X1", key="streak")
 
         elif qtype == "sd":
-            ans = st.number_input("SD of X3", key="s2")
+            ans = st.number_input("Compute SD of X3", key="streak")
 
-            if st.button("Submit Streak", key="sb2"):
-                correct = df["X3"].std()
+        else:
+            ans = st.radio("CV measures:", ["Central tendency", "Dispersion", "Skewness"], key="streak")
+
+        if st.button("Submit Streak Answer"):
+
+            if qtype == "mean":
+                correct = df["X1"].mean()
+
                 if abs(ans - correct) < 0.5:
                     st.success("Correct")
                     st.session_state["streak"] += 1
                 else:
-                    st.error(f"Wrong. Correct SD ≈ {round(correct,2)}")
+                    st.error(f"""
+Incorrect  
+
+Correct ≈ {round(correct,2)}  
+
+Mean = sum of values / number of observations  
+Likely mistake: calculation or partial data usage
+""")
                     st.session_state["streak"] = 0
 
-        else:
-            ans = st.radio(
-                "CV measures:",
-                ["Central tendency", "Dispersion", "Skewness"],
-                key="s3"
-            )
+            elif qtype == "sd":
+                correct = df["X3"].std()
 
-            if st.button("Submit Streak", key="sb3"):
+                if abs(ans - correct) < 0.5:
+                    st.success("Correct")
+                    st.session_state["streak"] += 1
+                else:
+                    st.error(f"""
+Incorrect  
+
+Correct ≈ {round(correct,2)}  
+
+SD measures spread around mean  
+Likely mistake: confusion with variance or wrong formula
+""")
+                    st.session_state["streak"] = 0
+
+            else:
                 if ans == "Dispersion":
                     st.success("Correct")
                     st.session_state["streak"] += 1
                 else:
-                    st.error("Wrong. CV measures dispersion")
+                    st.error("""
+Incorrect  
+
+CV = SD / Mean → measures dispersion  
+Likely mistake: confusing with mean or skewness
+""")
                     st.session_state["streak"] = 0
 
-        # ----------------------------
-        # FULL QUIZ
-        # ----------------------------
+            # change question AFTER submission
+            st.session_state["current_q"] = np.random.choice(["mean", "sd", "cv"])
+
+        # =====================================================
+        # FULL QUIZ (AUTO-GENERATED)
+        # =====================================================
         if st.session_state["streak"] >= 3:
 
-            st.success("Unlocked Full Quiz")
+            st.success("🎉 Quiz Unlocked")
 
-            st.subheader("🧪 Quiz")
+            st.subheader("🧪 Smart Quiz")
 
-            responses = {}
+            questions = [
+                {
+                    "type": "numeric",
+                    "q": "Compute mean of X2",
+                    "answer": df["X2"].mean(),
+                    "concept": "Mean represents average"
+                },
+                {
+                    "type": "numeric",
+                    "q": "Compute SD of X1",
+                    "answer": df["X1"].std(),
+                    "concept": "SD measures variability"
+                },
+                {
+                    "type": "interpret",
+                    "q": "Which variable is most volatile and why?",
+                    "answer": (df.std()/df.mean()).idxmax(),
+                    "concept": "Volatility via coefficient of variation"
+                },
+                {
+                    "type": "mcq",
+                    "q": "Coefficient of variation measures:",
+                    "options": ["Central tendency", "Dispersion", "Shape"],
+                    "answer": "Dispersion",
+                    "concept": "CV = SD / Mean"
+                }
+            ]
 
-            responses["Q1_num"] = st.number_input("Q1: Mean of X1", key="q1n")
-            responses["Q1_txt"] = st.text_area("Explain mean", key="q1t")
+            responses = []
+            total = 0
 
-            responses["Q2_num"] = st.number_input("Q2: SD of X3", key="q2n")
-            responses["Q2_txt"] = st.text_area("Explain SD", key="q2t")
+            for i, q in enumerate(questions):
 
-            responses["Q3_txt"] = st.text_area("Most volatile variable?", key="q3")
+                st.markdown(f"### Q{i+1}: {q['q']}")
 
-            responses["Q4"] = st.radio(
-                "CV measures:",
-                ["Central tendency", "Dispersion", "Skewness"],
-                key="q4"
-            )
-
-            if st.button("Submit Quiz", key="submit_quiz"):
-
-                results = []
-                total = 0
-
-                mean_x1 = df["X1"].mean()
-                sd_x3 = df["X3"].std()
-                cv = df.std() / df.mean()
-                most_vol = cv.idxmax()
-
-                # Q1
-                q1 = 0
-                fb = ""
-                if abs(responses["Q1_num"] - mean_x1) < 0.5:
-                    q1 += 0.5
+                if q["type"] == "numeric":
+                    resp = st.number_input("Answer", key=f"q{i}")
+                elif q["type"] == "interpret":
+                    resp = st.text_area("Explain", key=f"q{i}")
                 else:
-                    fb += f"Mean incorrect (≈{round(mean_x1,2)}). "
+                    resp = st.radio("Choose", q["options"], key=f"q{i}")
 
-                if "average" in responses["Q1_txt"].lower():
-                    q1 += 0.5
-                else:
-                    fb += "Mean = average not explained."
+                responses.append(resp)
 
-                total += q1
-                results.append(("Q1", q1, fb))
-
-                # Q2
-                q2 = 0
-                fb = ""
-                if abs(responses["Q2_num"] - sd_x3) < 0.5:
-                    q2 += 0.5
-                else:
-                    fb += f"SD incorrect (≈{round(sd_x3,2)}). "
-
-                if "spread" in responses["Q2_txt"].lower():
-                    q2 += 0.5
-                else:
-                    fb += "SD = spread not explained."
-
-                total += q2
-                results.append(("Q2", q2, fb))
-
-                # Q3
-                q3 = 1 if most_vol.lower() in responses["Q3_txt"].lower() else 0
-                fb = "" if q3 else f"Correct answer: {most_vol}"
-
-                total += q3
-                results.append(("Q3", q3, fb))
-
-                # Q4
-                q4 = 1 if responses["Q4"] == "Dispersion" else 0
-                fb = "" if q4 else "CV measures dispersion"
-
-                total += q4
-                results.append(("Q4", q4, fb))
+            if st.button("Submit Quiz"):
 
                 st.subheader("📊 Detailed Feedback")
 
-                for q, s, f in results:
-                    st.write(f"{q}: {s}/1")
-                    st.write("✅ Correct" if s == 1 else f"🔴 {f}")
+                for i, q in enumerate(questions):
 
-                percent = (total / 4) * 100
+                    if q["type"] == "numeric":
+
+                        score = 0
+                        fb = ""
+
+                        if abs(responses[i] - q["answer"]) < 0.5:
+                            score += 0.5
+                        else:
+                            fb += f"Correct ≈ {round(q['answer'],2)}. "
+
+                        if "average" in str(responses[i]).lower():
+                            score += 0.5
+                        else:
+                            fb += "Concept missing (mean/SD interpretation)."
+
+                    elif q["type"] == "interpret":
+
+                        score = 1 if q["answer"].lower() in responses[i].lower() else 0
+                        fb = "" if score else f"Correct: {q['answer']}"
+
+                    else:
+                        score = 1 if responses[i] == q["answer"] else 0
+                        fb = "" if score else "Correct answer: Dispersion"
+
+                    total += score
+
+                    st.write(f"Q{i+1}: {score}/1")
+                    st.write("✅ Correct" if score == 1 else f"🔴 {fb}")
+
+                percent = (total / len(questions)) * 100
 
                 st.subheader("Final Score")
-                st.write(f"{total}/4 ({round(percent,2)}%)")
+                st.write(f"{total}/{len(questions)} ({round(percent,2)}%)")
 
                 if percent >= 80:
                     st.success("🎉 Proficiency Achieved")
@@ -213,12 +234,4 @@ if mode == "Student":
 elif mode == "Instructor":
 
     st.header("👨‍🏫 Instructor Dashboard")
-
-    uploaded_files = st.file_uploader(
-        "Upload student Excel files",
-        accept_multiple_files=True
-    )
-
-    if uploaded_files:
-        st.success(f"{len(uploaded_files)} files uploaded")
-        
+    st.write("Next step: upload and evaluate student files")
