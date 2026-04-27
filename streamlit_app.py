@@ -31,18 +31,13 @@ df = st.session_state.df
 # -------------------------
 # INIT STATE
 # -------------------------
-for key, val in {
-    "module":0,
-    "qtype":0,
-    "cleared":[],
-    "prev_difficulty":None
-}.items():
-    if key not in st.session_state:
-        st.session_state[key] = val
+if "module" not in st.session_state:
+    st.session_state.module = 0
+if "qtype" not in st.session_state:
+    st.session_state.qtype = 0
+if "prev_difficulty" not in st.session_state:
+    st.session_state.prev_difficulty = None
 
-# -------------------------
-# MODULES
-# -------------------------
 modules = [
     "Descriptive Stats",
     "Hypothesis Testing",
@@ -59,16 +54,15 @@ name = st.text_input("Student Name")
 
 difficulty = st.selectbox("Select Difficulty", ["Easy","Medium","Hard"])
 
-# RESET ON DIFFICULTY CHANGE
+# RESET when difficulty changes
 if st.session_state.prev_difficulty != difficulty:
     st.session_state.module = 0
     st.session_state.qtype = 0
-    st.session_state.cleared = []
     st.session_state.prev_difficulty = difficulty
     st.rerun()
 
 # -------------------------
-# COMPLETION CHECK
+# END CONDITION
 # -------------------------
 if st.session_state.module >= len(modules):
     st.success("🎓 Congratulations! You have completed ALL modules.")
@@ -77,24 +71,24 @@ if st.session_state.module >= len(modules):
 st.subheader(f"Current Module: {modules[st.session_state.module]}")
 
 # -------------------------
-# QUESTION ENGINE
+# DESCRIPTIVE QUESTIONS
 # -------------------------
 def descriptive_question(qtype):
 
     var = np.random.choice(["Marketing","Cost","Satisfaction"])
     cat = np.random.choice(["Region","Segment"])
 
-    # TYPE 1: variability comparison
+    # Q1: variability
     if qtype == 0:
         v1, v2 = np.random.choice(["Marketing","Cost","Satisfaction"],2,replace=False)
 
         return {
-            "q": f"Compare variability: Which has higher dispersion ({v1} or {v2})?",
+            "q": f"Which variable has higher variability: {v1} or {v2}?",
             "type":"mcq",
             "options":[v1,v2],
             "answer": v1 if df[v1].std()>df[v2].std() else v2,
             "explanation": f"""
-Correct method: Compare standard deviations.
+Compare standard deviations:
 
 SD({v1}) = {round(df[v1].std(),2)}
 SD({v2}) = {round(df[v2].std(),2)}
@@ -103,55 +97,38 @@ Higher SD ⇒ more variability.
 """
         }
 
-    # TYPE 2: probability
+    # Q2: probability
     if qtype == 1:
 
         if difficulty == "Easy":
-            x = df[var].mean()
-
             return {
-                "q": f"Mean of {var} is {round(x,2)}. Compute P({var} < mean) assuming normal distribution.",
+                "q": f"For variable {var}, compute P(X < mean) assuming normal distribution.",
                 "type":"numeric",
                 "answer":0.5,
-                "explanation":"In normal distribution, P(X < mean) = 0.5"
+                "explanation":"For any normal distribution: P(X < mean) = 0.5"
             }
 
         elif difficulty == "Medium":
-            filt_value = df[cat].unique()[0]
+            filt = df[cat].unique()[0]
 
-return {
-    "q": f"""
-Using the dataset:
+            return {
+                "q": f"""
+Filter dataset where {cat} = {filt}
 
-1. Filter observations where {cat} = {filt_value}  
-2. Compute mean and standard deviation of {var}  
-3. Assuming normal distribution, compute:
+Then:
+1. Compute mean of {var}
+2. Compute P({var} < mean) assuming normal distribution
 
-P({var} < mean)
-
-Enter ONLY the final probability
+Enter final probability only
 """,
-    "type":"numeric",
-    "answer":0.5,
-    "explanation": f"""
-Step-by-step solution:
+                "type":"numeric",
+                "answer":0.5,
+                "explanation":"""
+Even after filtering, for normal distribution:
+P(X < mean) = 0.5
 
-1. Filter dataset where {cat} = {filt_value}
-
-2. Compute:
-   Mean (μ) and Standard Deviation (σ) of {var}
-
-3. Since we are computing:
-   P(X < mean)
-
-For ANY normal distribution:
-   P(X < μ) = 0.5
-
-Key learning:
-Even after filtering, the theoretical probability at mean is always 0.5.
+Key idea: symmetry of normal distribution
 """
-}
-                
             }
 
         else:  # HARD
@@ -164,32 +141,31 @@ Variable: {var}
 
 Mean = {round(mu,2)}, SD = {round(sd,2)}
 
-Compute:
-1. Theoretical P({var} < {round(x,2)})
-2. Observed P({var} < {round(x,2)})
+Compute theoretical probability:
 
-Enter ONLY theoretical value
+P({var} < {round(x,2)})
+
+Enter value
 """,
                 "type":"numeric",
                 "answer": stats.norm.cdf(x,mu,sd),
-                "explanation": f"""
-Theoretical uses normal distribution.
+                "explanation":"""
+Use normal CDF:
 
-Observed would be:
-count(values < X) / total
+Z = (X - μ)/σ
 
-Difference occurs if data not perfectly normal.
+Then compute probability from normal distribution.
 """
             }
 
-    # TYPE 3: interpretation
+    # Q3: interpretation
     if qtype == 2:
         skew = stats.skew(df[var])
         kurt = stats.kurtosis(df[var])
 
         return {
             "q": f"""
-Variable {var} has:
+Variable {var}:
 
 Skewness = {round(skew,2)}
 Kurtosis = {round(kurt,2)}
@@ -198,107 +174,74 @@ Interpret distribution
 """,
             "type":"text",
             "answer":"",
-            "explanation": f"""
+            "explanation":"""
 Skew > 0 ⇒ right skew  
-Kurtosis:
->0 ⇒ heavy tails  
-<0 ⇒ light tails
+Skew < 0 ⇒ left skew  
+
+Kurtosis > 0 ⇒ heavy tails  
+Kurtosis < 0 ⇒ light tails
 """
         }
 
-
+# -------------------------
+# OTHER MODULES (CLEAN)
+# -------------------------
 def hypothesis_question(qtype):
 
-    if qtype == 0:
-        return {
-            "q":"Data is NOT normal. Which test for 2 independent samples?",
-            "type":"mcq",
-            "options":["t-test","Mann-Whitney","ANOVA"],
-            "answer":"Mann-Whitney",
-            "explanation":"Non-parametric test for independent samples"
-        }
+    questions = [
+        ("Non-normal data, 2 independent samples?", ["t-test","Mann-Whitney","ANOVA"], "Mann-Whitney"),
+        ("p-value = 0.03 → decision?", ["Reject","Do not reject"], "Reject"),
+        ("Normal but unequal variance?", ["Student t","Welch t"], "Welch t")
+    ]
 
-    if qtype == 1:
-        return {
-            "q":"p-value = 0.03. Decision?",
-            "type":"mcq",
-            "options":["Reject null","Do not reject"],
-            "answer":"Reject null",
-            "explanation":"p < 0.05 ⇒ reject H0"
-        }
+    q = questions[qtype]
 
-    if qtype == 2:
-        return {
-            "q":"Data normal but variances unequal. Which test?",
-            "type":"mcq",
-            "options":["Student t","Welch t","Chi-square"],
-            "answer":"Welch t",
-            "explanation":"Welch handles unequal variance"
-        }
-
+    return {
+        "q": q[0],
+        "type":"mcq",
+        "options": q[1],
+        "answer": q[2],
+        "explanation":"Based on statistical test selection rules"
+    }
 
 def anova_question(qtype):
 
-    if qtype == 0:
-        return {
-            "q":"Non-normal data, 3 groups. Which test?",
-            "type":"mcq",
-            "options":["ANOVA","Kruskal-Wallis","t-test"],
-            "answer":"Kruskal-Wallis",
-            "explanation":"Non-parametric ANOVA"
-        }
+    questions = [
+        ("Non-normal, 3 groups?", ["ANOVA","Kruskal"], "Kruskal"),
+        ("Normal unequal variance?", ["Fisher","Welch"], "Welch"),
+        ("Post-hoc unequal variance?", ["Tukey","Games-Howell"], "Games-Howell")
+    ]
 
-    if qtype == 1:
-        return {
-            "q":"Normal + unequal variance. Which ANOVA?",
-            "type":"mcq",
-            "options":["Fisher","Welch","Chi-square"],
-            "answer":"Welch",
-            "explanation":"Welch ANOVA"
-        }
+    q = questions[qtype]
 
-    if qtype == 2:
-        return {
-            "q":"Post-hoc for unequal variance?",
-            "type":"mcq",
-            "options":["Tukey","Games-Howell","DSCF"],
-            "answer":"Games-Howell",
-            "explanation":"Used when variance unequal"
-        }
-
+    return {
+        "q": q[0],
+        "type":"mcq",
+        "options": q[1],
+        "answer": q[2],
+        "explanation":"ANOVA decision logic"
+    }
 
 def regression_question(qtype):
 
-    if qtype == 0:
-        return {
-            "q":"Which test detects heteroskedasticity?",
-            "type":"mcq",
-            "options":["Durbin Watson","Breusch Pagan","VIF"],
-            "answer":"Breusch Pagan",
-            "explanation":"Variance of residuals"
-        }
+    questions = [
+        ("Detect heteroskedasticity?", ["Durbin","Breusch Pagan","VIF"], "Breusch Pagan"),
+        ("High VIF means?", ["Normality","Multicollinearity"], "Multicollinearity"),
+        ("Durbin Watson checks?", ["Variance","Autocorrelation"], "Autocorrelation")
+    ]
 
-    if qtype == 1:
-        return {
-            "q":"High VIF indicates?",
-            "type":"mcq",
-            "options":["Normality","Multicollinearity","Autocorrelation"],
-            "answer":"Multicollinearity",
-            "explanation":"Predictors correlated"
-        }
+    q = questions[qtype]
 
-    if qtype == 2:
-        return {
-            "q":"Durbin Watson checks?",
-            "type":"mcq",
-            "options":["Variance","Autocorrelation","Mean"],
-            "answer":"Autocorrelation",
-            "explanation":"Residual correlation"
-        }
-
+    return {
+        "q": q[0],
+        "type":"mcq",
+        "options": q[1],
+        "answer": q[2],
+        "explanation":"Regression diagnostics"
+    }
 
 # -------------------------
-# SELECT QUESTION
+# QUESTION SELECT
 # -------------------------
 if st.session_state.module == 0:
     q = descriptive_question(st.session_state.qtype)
@@ -314,28 +257,24 @@ else:
 # -------------------------
 st.write(q["q"])
 
-question_key = f"{st.session_state.module}_{st.session_state.qtype}"
-
 if q["type"] == "mcq":
-    ans = st.radio("", q["options"], key=f"mcq_{question_key}")
-
+    ans = st.radio("", q["options"])
 elif q["type"] == "numeric":
-    ans = st.number_input("Answer", key=f"num_{question_key}")
-
+    ans = st.number_input("Answer")
 else:
-    ans = st.text_area("Answer", key=f"text_{question_key}")
+    ans = st.text_area("Answer")
 
 # -------------------------
-# EVALUATE
+# EVALUATION
 # -------------------------
 if st.button("Submit"):
 
     if q["type"] == "numeric":
-        correct = abs(ans - q["answer"]) < 0.5
+        correct = abs(ans - q["answer"]) < 0.05
     elif q["type"] == "mcq":
         correct = ans == q["answer"]
     else:
-        correct = len(ans.strip()) > 10
+        correct = len(ans.strip()) > 15
 
     if correct:
         st.success("✅ Correct")
@@ -358,5 +297,5 @@ Correct Answer: {q['answer']}
 Explanation:
 {q['explanation']}
 
-👉 Try a similar question again.
+👉 Try again
 """)
