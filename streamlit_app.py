@@ -51,7 +51,11 @@ name = st.text_input("Student Name")
 
 difficulty = st.selectbox("Select Difficulty", ["Easy","Medium","Hard"])
 
-st.write(f"### Current Module: {modules[st.session_state.module]}")
+if st.session_state.module < len(modules):
+    st.write(f"### Current Module: {modules[st.session_state.module]}")
+else:
+    st.success("🎓 Congratulations! You have completed ALL modules.")
+    st.stop()
 
 # -------------------------
 # QUESTION ENGINE
@@ -281,8 +285,11 @@ if st.button("Submit"):
     
             st.write(f"Certificate: {name} cleared {modules[st.session_state.module]} at {difficulty} level")
     
-            st.session_state.module += 1
-            st.session_state.qtype = 0
+            if st.session_state.module < len(modules) - 1:
+                st.session_state.module += 1
+                st.session_state.qtype = 0
+            else:
+                st.session_state.module += 1  # allow completion state
     
         st.rerun()   # 🔥 ADD THIS LINE
 
