@@ -11,18 +11,6 @@ mode = st.sidebar.selectbox("Select Mode", ["Student", "Instructor"])
 # =====================================================
 # STUDENT MODE
 # =====================================================
-import streamlit as st
-import pandas as pd
-import numpy as np
-
-st.set_page_config(page_title="Business Analytics LMS", layout="wide")
-st.title("📊 Business Analytics LMS")
-
-mode = st.sidebar.selectbox("Select Mode", ["Student", "Instructor"])
-
-# =====================================================
-# STUDENT MODE
-# =====================================================
 if mode == "Student":
 
     st.header("👩‍🎓 Student Quiz Agent")
@@ -75,7 +63,7 @@ if mode == "Student":
         if qtype == "mean":
             ans = st.number_input("Mean of X1", key="s1")
 
-            if st.button("Submit Streak"):
+            if st.button("Submit Streak", key="sb1"):
                 correct = df["X1"].mean()
                 if abs(ans - correct) < 0.5:
                     st.success("Correct")
@@ -87,7 +75,7 @@ if mode == "Student":
         elif qtype == "sd":
             ans = st.number_input("SD of X3", key="s2")
 
-            if st.button("Submit Streak"):
+            if st.button("Submit Streak", key="sb2"):
                 correct = df["X3"].std()
                 if abs(ans - correct) < 0.5:
                     st.success("Correct")
@@ -97,9 +85,13 @@ if mode == "Student":
                     st.session_state["streak"] = 0
 
         else:
-            ans = st.radio("CV measures:", ["Central tendency", "Dispersion", "Skewness"])
+            ans = st.radio(
+                "CV measures:",
+                ["Central tendency", "Dispersion", "Skewness"],
+                key="s3"
+            )
 
-            if st.button("Submit Streak"):
+            if st.button("Submit Streak", key="sb3"):
                 if ans == "Dispersion":
                     st.success("Correct")
                     st.session_state["streak"] += 1
@@ -118,125 +110,92 @@ if mode == "Student":
 
             responses = {}
 
-            # Q1
-            responses["Q1_num"] = st.number_input("Q1: Mean of X1")
-            responses["Q1_txt"] = st.text_area("Explain mean (Q1)")
+            responses["Q1_num"] = st.number_input("Q1: Mean of X1", key="q1n")
+            responses["Q1_txt"] = st.text_area("Explain mean", key="q1t")
 
-            # Q2
-            responses["Q2_num"] = st.number_input("Q2: SD of X3")
-            responses["Q2_txt"] = st.text_area("Explain SD (Q2)")
+            responses["Q2_num"] = st.number_input("Q2: SD of X3", key="q2n")
+            responses["Q2_txt"] = st.text_area("Explain SD", key="q2t")
 
-            # Q3
-            responses["Q3_txt"] = st.text_area("Q3: Which variable is most volatile? Why?")
+            responses["Q3_txt"] = st.text_area("Most volatile variable?", key="q3")
 
-            # Q4
-            responses["Q4"] = st.radio("Q4: CV measures:", ["Central tendency", "Dispersion", "Skewness"])
+            responses["Q4"] = st.radio(
+                "CV measures:",
+                ["Central tendency", "Dispersion", "Skewness"],
+                key="q4"
+            )
 
-            if st.button("Submit Quiz"):
+            if st.button("Submit Quiz", key="submit_quiz"):
 
                 results = []
                 total = 0
 
-                # ----------------------------
-                # CORRECT VALUES
-                # ----------------------------
                 mean_x1 = df["X1"].mean()
                 sd_x3 = df["X3"].std()
                 cv = df.std() / df.mean()
                 most_vol = cv.idxmax()
 
-                # ----------------------------
                 # Q1
-                # ----------------------------
-                q1_score = 0
-                feedback = ""
-
+                q1 = 0
+                fb = ""
                 if abs(responses["Q1_num"] - mean_x1) < 0.5:
-                    q1_score += 0.5
+                    q1 += 0.5
                 else:
-                    feedback += f"Numeric wrong. Correct ≈ {round(mean_x1,2)}. "
+                    fb += f"Mean incorrect (≈{round(mean_x1,2)}). "
 
                 if "average" in responses["Q1_txt"].lower():
-                    q1_score += 0.5
+                    q1 += 0.5
                 else:
-                    feedback += "Interpretation weak (mean = average)."
+                    fb += "Mean = average not explained."
 
-                total += q1_score
-                results.append(("Q1", q1_score, feedback))
+                total += q1
+                results.append(("Q1", q1, fb))
 
-                # ----------------------------
                 # Q2
-                # ----------------------------
-                q2_score = 0
-                feedback = ""
-
+                q2 = 0
+                fb = ""
                 if abs(responses["Q2_num"] - sd_x3) < 0.5:
-                    q2_score += 0.5
+                    q2 += 0.5
                 else:
-                    feedback += f"Numeric wrong. Correct ≈ {round(sd_x3,2)}. "
+                    fb += f"SD incorrect (≈{round(sd_x3,2)}). "
 
                 if "spread" in responses["Q2_txt"].lower():
-                    q2_score += 0.5
+                    q2 += 0.5
                 else:
-                    feedback += "Interpretation weak (SD = spread)."
+                    fb += "SD = spread not explained."
 
-                total += q2_score
-                results.append(("Q2", q2_score, feedback))
+                total += q2
+                results.append(("Q2", q2, fb))
 
-                # ----------------------------
                 # Q3
-                # ----------------------------
-                q3_score = 0
-                feedback = ""
+                q3 = 1 if most_vol.lower() in responses["Q3_txt"].lower() else 0
+                fb = "" if q3 else f"Correct answer: {most_vol}"
 
-                if most_vol.lower() in responses["Q3_txt"].lower():
-                    q3_score += 1
-                else:
-                    feedback += f"Wrong. Most volatile = {most_vol}"
+                total += q3
+                results.append(("Q3", q3, fb))
 
-                total += q3_score
-                results.append(("Q3", q3_score, feedback))
-
-                # ----------------------------
                 # Q4
-                # ----------------------------
-                q4_score = 1 if responses["Q4"] == "Dispersion" else 0
-                feedback = "" if q4_score else "CV measures dispersion"
+                q4 = 1 if responses["Q4"] == "Dispersion" else 0
+                fb = "" if q4 else "CV measures dispersion"
 
-                total += q4_score
-                results.append(("Q4", q4_score, feedback))
+                total += q4
+                results.append(("Q4", q4, fb))
 
-                # ----------------------------
-                # DISPLAY RESULT
-                # ----------------------------
-                st.subheader("📊 Detailed Evaluation")
+                st.subheader("📊 Detailed Feedback")
 
-                for q, score, fb in results:
-                    st.write(f"{q}: {score}/1")
-                    if fb:
-                        st.write(f"🔴 {fb}")
-                    else:
-                        st.write("✅ Correct")
+                for q, s, f in results:
+                    st.write(f"{q}: {s}/1")
+                    st.write("✅ Correct" if s == 1 else f"🔴 {f}")
 
-                max_marks = 4
-                percent = (total / max_marks) * 100
+                percent = (total / 4) * 100
 
                 st.subheader("Final Score")
-                st.write(f"{total} / {max_marks} ({round(percent,2)}%)")
+                st.write(f"{total}/4 ({round(percent,2)}%)")
 
                 if percent >= 80:
                     st.success("🎉 Proficiency Achieved")
                     st.balloons()
                 else:
                     st.warning("Needs improvement")
-
-# =====================================================
-# INSTRUCTOR MODE
-# =====================================================
-elif mode == "Instructor":
-
-    st.header("Instructor Dashboard")
-    st.write("Upload student files here (next step)")
 
 # =====================================================
 # INSTRUCTOR MODE
@@ -252,3 +211,4 @@ elif mode == "Instructor":
 
     if uploaded_files:
         st.success(f"{len(uploaded_files)} files uploaded")
+        
