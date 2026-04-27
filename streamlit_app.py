@@ -100,76 +100,62 @@ Higher SD ⇒ more variability.
     # Q2: probability
     if qtype == 1:
 
-        if difficulty == "Easy":
-            return {
-                "q": f"For variable {var}, compute P(X < mean) assuming normal distribution.",
-                "type":"numeric",
-                "answer":0.5,
-                "explanation":"For any normal distribution: P(X < mean) = 0.5"
-            }
+    if difficulty == "Easy":
+        return {
+            "q": f"For variable {var}, compute P(X < mean) assuming normal distribution.",
+            "type":"numeric",
+            "answer":0.5,
+            "explanation":"For normal distribution: P(X < mean) = 0.5"
+        }
 
-        elif difficulty == "Medium":
-            filt = df[cat].unique()[0]
+    elif difficulty == "Medium":
+        filt = df[cat].unique()[0]
 
-    return {
-        "q": f"""
+        return {
+            "q": f"""
 Using the dataset:
 
 1. Filter rows where {cat} = {filt}
 2. Compute mean (μ) and standard deviation (σ) of {var}
 3. Compute:
 
-P({var} < μ) assuming normal distribution
+P({var} < μ)
 
 Enter final probability
 """,
-        "type":"numeric",
-        "answer":0.5,
-        "explanation":"""
-Even after filtering, for ANY normal distribution:
+            "type":"numeric",
+            "answer":0.5,
+            "explanation":"Even after filtering: P(X < mean) = 0.5"
+        }
 
-P(X < mean) = 0.5
+    else:  # HARD
+        filt = df[cat].unique()[0]
+        subset = df[df[cat] == filt]
 
-Key insight:
-Student must compute mean first → then apply concept.
-"""
-    }
+        x = float(np.random.choice(subset[var]))
+        mu = subset[var].mean()
+        sd = subset[var].std()
 
-else:  # HARD
-    filt = df[cat].unique()[0]
-    x = float(np.random.choice(df[var]))
-
-    return {
-        "q": f"""
+        return {
+            "q": f"""
 Using the dataset:
 
 1. Filter rows where {cat} = {filt}
-2. Compute mean (μ) and standard deviation (σ) of {var}
+2. Compute mean (μ) and standard deviation (σ)
 3. Compute:
 
-P({var} < {round(x,2)}) assuming normal distribution
+P({var} < {round(x,2)})
 
-Enter final probability
+Enter value
 """,
-        "type":"numeric",
-        "answer": stats.norm.cdf(x, df[var].mean(), df[var].std()),
-        "explanation": f"""
-Steps:
+            "type":"numeric",
+            "answer": stats.norm.cdf(x, mu, sd),
+            "explanation": f"""
+Z = (X - μ)/σ
 
-1. Filter dataset
-2. Compute μ and σ manually
-3. Standardize:
-
-Z = (X - μ) / σ
-
-4. Use normal table / CDF
-
-This tests:
-✔ Data handling  
-✔ Parameter estimation  
-✔ Probability computation  
+Then use normal CDF.
 """
-    }
+        }
 
 # -------------------------
 # OTHER MODULES (CLEAN)
