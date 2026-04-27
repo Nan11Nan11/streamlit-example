@@ -163,6 +163,16 @@ st.write(f"Percentage: {round(percentage,2)}%")
 # ----------------------------
 # PROFICIENCY CHECK
 # ----------------------------
+max_marks = 4
+percentage = (total / max_marks) * 100
+
+st.subheader("📊 Result Summary")
+st.write(f"Score: {total} / {max_marks}")
+st.write(f"Percentage: {round(percentage,2)}%")
+
+# ----------------------------
+# PROFICIENCY CHECK
+# ----------------------------
 if percentage >= 80:
     st.success("🎉 PROFICIENCY ACHIEVED!")
 
