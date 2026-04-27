@@ -100,19 +100,19 @@ Higher SD ⇒ more variability.
     # Q2: probability
     if qtype == 1:
 
-    if difficulty == "Easy":
-        return {
-            "q": f"For variable {var}, compute P(X < mean) assuming normal distribution.",
-            "type":"numeric",
-            "answer":0.5,
-            "explanation":"For normal distribution: P(X < mean) = 0.5"
-        }
-
-    elif difficulty == "Medium":
-        filt = df[cat].unique()[0]
-
-        return {
-            "q": f"""
+        if difficulty == "Easy":
+            return {
+                "q": f"For variable {var}, compute P(X < mean) assuming normal distribution.",
+                "type":"numeric",
+                "answer":0.5,
+                "explanation":"For normal distribution: P(X < mean) = 0.5"
+            }
+    
+        elif difficulty == "Medium":
+            filt = df[cat].unique()[0]
+    
+            return {
+                "q": f"""
 Using the dataset:
 
 1. Filter rows where {cat} = {filt}
