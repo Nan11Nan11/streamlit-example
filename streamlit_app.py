@@ -62,66 +62,157 @@ topic = st.selectbox("Select Topic", [
 # -----------------------------
 # QUESTION GENERATOR
 # -----------------------------
+# -----------------------------
+# MEMORY-AWARE QUESTION ENGINE
+# -----------------------------
 def generate_question(topic, df):
 
-    if topic == "Descriptive":
-        var = np.random.choice(["Marketing","Cost","Satisfaction"])
-        return {
-            "q": f"Compute mean of {var}",
-            "type": "numeric",
-            "answer": df[var].mean(),
-            "explanation": f"Mean = average of {var}"
-        }
+    if "history" not in st.session_state:
+        st.session_state.history = []
 
+    vars_num = ["Marketing","Cost","Satisfaction","Productivity","Market_Share"]
+    concepts = ["mean","sd","cv","skew","subset","compare","prob"]
+
+    # Avoid repetition
+    for _ in range(20):
+
+        var = np.random.choice(vars_num)
+        concept = np.random.choice(concepts)
+
+        signature = f"{topic}-{var}-{concept}"
+
+        if signature not in st.session_state.history:
+            st.session_state.history.append(signature)
+            if len(st.session_state.history) > 20:
+                st.session_state.history.pop(0)
+            break
+
+    # -----------------------------
+    # DESCRIPTIVE
+    # -----------------------------
+    if topic == "Descriptive":
+
+        if concept == "mean":
+            return {
+                "q": f"Compute mean of {var}",
+                "type": "numeric",
+                "answer": df[var].mean(),
+                "explanation": "Mean = average"
+            }
+
+        if concept == "sd":
+            return {
+                "q": f"Compute standard deviation of {var}",
+                "type": "numeric",
+                "answer": df[var].std(),
+                "explanation": "SD measures dispersion"
+            }
+
+        if concept == "cv":
+            return {
+                "q": f"Compute coefficient of variation of {var}",
+                "type": "numeric",
+                "answer": df[var].std()/df[var].mean(),
+                "explanation": "CV = SD / Mean"
+            }
+
+        if concept == "compare":
+            v2 = np.random.choice(vars_num)
+            return {
+                "q": f"Which has higher variability: {var} or {v2}?",
+                "type": "mcq",
+                "options": [var, v2],
+                "answer": var if df[var].std() > df[v2].std() else v2,
+                "explanation": "Compare standard deviations"
+            }
+
+        if concept == "skew":
+            return {
+                "q": f"If mean > median for {var}, distribution is?",
+                "type": "mcq",
+                "options": ["Positive skew","Negative skew"],
+                "answer": "Positive skew",
+                "explanation": "Mean > median → right skew"
+            }
+
+    # -----------------------------
+    # NORMALITY
+    # -----------------------------
     if topic == "Normality":
+
         return {
-            "q": "If p-value > 0.05 in Shapiro test, data is?",
+            "q": f"Shapiro test gives p=0.08. What do you conclude?",
             "type": "mcq",
             "options": ["Normal","Not normal"],
             "answer": "Normal",
-            "explanation": "p > 0.05 → fail to reject normality"
+            "explanation": "p > 0.05 → normal"
         }
 
+    # -----------------------------
+    # SUBSET ANALYSIS
+    # -----------------------------
     if topic == "Subset Analysis":
+
         region = np.random.choice(df["Region"].unique())
-        sub = df[df["Region"] == region]
+        segment = np.random.choice(df["Segment"].unique())
+
+        sub = df[(df["Region"]==region) & (df["Segment"]==segment)]
 
         return {
-            "q": f"Compute mean Sales for Region = {region}",
+            "q": f"Compute mean Sales for Region={region}, Segment={segment}",
             "type": "numeric",
             "answer": sub["Sales"].mean(),
-            "explanation": "Filtered mean calculation"
+            "explanation": "Filtered subset mean"
         }
 
+    # -----------------------------
+    # PROBABILITY
+    # -----------------------------
     if topic == "Probability":
+
         x = np.random.choice(df["Marketing"])
         mu = df["Marketing"].mean()
         sd = df["Marketing"].std()
 
-        prob = stats.norm.cdf(x, mu, sd)
-
         return {
-            "q": f"Approx probability P(X < {round(x,2)}) for Marketing",
+            "q": f"Compute P(X < {round(x,2)}) assuming normal distribution",
             "type": "numeric",
-            "answer": prob,
-            "explanation": "Using normal distribution CDF"
+            "answer": stats.norm.cdf(x, mu, sd),
+            "explanation": "Use normal CDF"
         }
 
+    # -----------------------------
+    # HYPOTHESIS TESTING
+    # -----------------------------
     if topic == "Hypothesis Testing":
 
-        sample = df["Marketing"].sample(40)
-        mean = sample.mean()
-        sd = sample.std()
-        n = len(sample)
+        case = np.random.choice(["decision","test_select","pvalue"])
 
-        t_val = (mean - 50)/(sd/np.sqrt(n))
+        if case == "decision":
+            return {
+                "q": "p-value = 0.03. What is decision?",
+                "type": "mcq",
+                "options": ["Reject null","Do not reject"],
+                "answer": "Reject null",
+                "explanation": "p < alpha → reject"
+            }
 
-        return {
-            "q": f"Compute t-stat (mean={round(mean,2)}, sd={round(sd,2)}, n={n})",
-            "type": "numeric",
-            "answer": t_val,
-            "explanation": "t = (mean - hypo)/SE"
-        }
+        if case == "test_select":
+            return {
+                "q": "Data not normal. Which test for 2 independent samples?",
+                "type": "mcq",
+                "options": ["t-test","Mann-Whitney","ANOVA"],
+                "answer": "Mann-Whitney",
+                "explanation": "Non-parametric test"
+            }
+
+        if case == "pvalue":
+            return {
+                "q": "What does p-value represent?",
+                "type": "text",
+                "answer": "probability under null",
+                "explanation": "Probability of observing data under null hypothesis"
+            }
 
 # -----------------------------
 # GENERATE NEW QUESTION
