@@ -227,19 +227,21 @@ if st.button("Submit"):
 
     if correct:
         st.success("Correct")
-
+    
         st.session_state.qtype += 1
-
+    
         if st.session_state.qtype > 2:
-
+    
             st.success("🎉 MODULE CLEARED")
-
+    
             st.session_state.cleared.append(modules[st.session_state.module])
-
+    
             st.write(f"Certificate: {name} cleared {modules[st.session_state.module]} at {difficulty} level")
-
+    
             st.session_state.module += 1
             st.session_state.qtype = 0
+    
+        st.rerun()   # 🔥 ADD THIS LINE
 
     else:
         st.error(f"""
