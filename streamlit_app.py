@@ -112,70 +112,60 @@ if mode == "Student":
         # ===============================
         if st.session_state["streak"] >= 3:
 
-            st.success("🎉 Streak completed! Full quiz unlocked!")
+    st.success("🎉 Streak completed! Full quiz unlocked!")
 
-            st.subheader("🧪 Full Quiz")
+    st.subheader("🧪 Full Quiz")
 
-            responses = {}
+    responses = {}
 
-            st.markdown("### Q1: Compute Mean of X1")
-            responses["Q1"] = st.number_input("Mean X1")
+    responses["Q1"] = st.number_input("Mean X1")
+    responses["Q2"] = st.number_input("SD X3")
+    responses["Q3"] = st.text_area("Answer Q3", key="q3")
 
-            st.markdown("### Q2: Compute SD of X3")
-            responses["Q2"] = st.number_input("SD X3")
+    responses["Q5"] = st.radio(
+        "CV measures:",
+        ["Central tendency", "Dispersion", "Skewness"]
+    )
 
-            st.markdown("### Q3: Most volatile variable?")
-            responses["Q3"] = st.text_area("Answer Q3", key="q3")
+    if st.button("Submit Full Quiz"):
 
-            st.markdown("### Q5: CV measures?")
-            responses["Q5"] = st.radio(
-                "Choose one:",
-                ["Central tendency", "Dispersion", "Skewness"]
-            )
+        total = 0
 
-            if st.button("Submit Full Quiz"):
+        correct_mean = df["X1"].mean()
+        correct_sd = df["X3"].std()
+        cv = df.std() / df.mean()
+        most_vol = cv.idxmax()
 
-                total = 0
-                correct_mean = df["X1"].mean()
-                correct_sd = df["X3"].std()
-                cv = df.std() / df.mean()
-                most_vol = cv.idxmax()
+        if abs(responses["Q1"] - correct_mean) < 0.5:
+            total += 1
 
-                if abs(responses["Q1"] - correct_mean) < 0.5:
-                    total += 1
-            
-                if abs(responses["Q2"] - correct_sd) < 0.5:
-                    total += 1
-            
-                if most_vol.lower() in responses["Q3"].lower():
-                    total += 1
-            
-                if responses["Q5"] == "Dispersion":
-                    total += 1
+        if abs(responses["Q2"] - correct_sd) < 0.5:
+            total += 1
 
-    # ----------------------------
-    # RESULT + PROFICIENCY (INSIDE BLOCK)
-    # ----------------------------
-    max_marks = 4
-    percentage = (total / max_marks) * 100
+        if most_vol.lower() in responses["Q3"].lower():
+            total += 1
 
-    st.subheader("📊 Result Summary")
-    st.write(f"Score: {total} / {max_marks}")
-    st.write(f"Percentage: {round(percentage,2)}%")
+        if responses["Q5"] == "Dispersion":
+            total += 1
 
-    if percentage >= 80:
-        st.success("🎉 PROFICIENCY ACHIEVED!")
+        # ----------------------------
+        # RESULT + PROFICIENCY
+        # ----------------------------
+        max_marks = 4
+        percentage = (total / max_marks) * 100
 
-        st.subheader("🎓 Certificate of Completion")
-        st.write(f"Student: {name}")
-        st.write("Module: Descriptive Statistics")
-        st.write(f"Score: {round(percentage,2)}%")
+        st.subheader("📊 Result Summary")
+        st.write(f"Score: {total} / {max_marks}")
+        st.write(f"Percentage: {round(percentage,2)}%")
 
-        st.balloons()
+        if percentage >= 80:
+            st.success("🎉 PROFICIENCY ACHIEVED!")
+            st.balloons()
+        else:
+            st.warning("❌ Proficiency not achieved")
 
-    else:
-        st.warning("❌ Proficiency not achieved")
-        st.write("💡 You need at least 80% to pass")
+else:
+    st.info("🔒 Complete streak (3 correct answers) to unlock quiz")
 
 
 # =====================================================
