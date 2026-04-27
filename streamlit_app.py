@@ -153,7 +153,29 @@ if mode == "Student":
                 if responses["Q5"] == "Dispersion":
                     total += 1
 
-                st.success(f"Score: {total}/4")
+                max_marks = 4
+percentage = (total / max_marks) * 100
+
+st.subheader("📊 Result Summary")
+st.write(f"Score: {total} / {max_marks}")
+st.write(f"Percentage: {round(percentage,2)}%")
+
+# ----------------------------
+# PROFICIENCY CHECK
+# ----------------------------
+if percentage >= 80:
+    st.success("🎉 PROFICIENCY ACHIEVED!")
+
+    st.subheader("🎓 Certificate of Completion")
+    st.write(f"Student: {name}")
+    st.write("Module: Descriptive Statistics")
+    st.write(f"Score: {round(percentage,2)}%")
+
+    st.balloons()
+
+else:
+    st.warning("❌ Proficiency not achieved")
+    st.write("💡 You need at least 80% to pass")
 
 
 # =====================================================
