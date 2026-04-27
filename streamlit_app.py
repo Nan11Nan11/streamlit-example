@@ -3,266 +3,250 @@ import pandas as pd
 import numpy as np
 from scipy import stats
 
-st.set_page_config(page_title="Business Analytics LMS", layout="wide")
+st.set_page_config(layout="wide")
 
-# -----------------------------
-# DATASET
-# -----------------------------
-def generate_dataset(seed=42):
-    np.random.seed(seed)
-
+# -------------------------
+# INIT
+# -------------------------
+if "df" not in st.session_state:
+    np.random.seed(42)
     df = pd.DataFrame({
-        "Marketing": np.random.normal(50, 10, 120),
-        "Productivity": np.random.normal(60, 15, 120),
-        "Satisfaction": np.random.normal(70, 8, 120),
-        "Cost": np.random.normal(40, 12, 120),
-        "Market_Share": np.random.normal(30, 5, 120),
+        "Marketing": np.random.normal(50,10,120),
+        "Cost": np.random.normal(40,12,120),
+        "Satisfaction": np.random.normal(70,8,120),
+        "Productivity": np.random.normal(60,15,120),
+        "Market_Share": np.random.normal(30,5,120),
         "Region": np.random.choice(["North","South","East","West"],120),
         "Segment": np.random.choice(["Retail","Corporate"],120),
         "Strategy": np.random.choice(["Aggressive","Conservative"],120)
     })
 
-    df["Sales"] = (
-        0.5*df["Marketing"] +
-        0.3*df["Satisfaction"] -
-        0.2*df["Cost"] +
-        np.random.normal(0,5,120)
-    )
+    df["Sales"] = 0.5*df["Marketing"] + 0.3*df["Satisfaction"] - 0.2*df["Cost"] + np.random.normal(0,5,120)
+    st.session_state.df = df
 
-    return df
+if "module" not in st.session_state:
+    st.session_state.module = 0
 
-# -----------------------------
-# SESSION INIT
-# -----------------------------
-if "df" not in st.session_state:
-    st.session_state.df = generate_dataset()
+if "qtype" not in st.session_state:
+    st.session_state.qtype = 0
 
-if "current_q" not in st.session_state:
-    st.session_state.current_q = None
-
-if "score" not in st.session_state:
-    st.session_state.score = 0
-
-if "total" not in st.session_state:
-    st.session_state.total = 0
-
+if "cleared" not in st.session_state:
+    st.session_state.cleared = []
 
 df = st.session_state.df
 
-st.title("📊 Business Analytics Learning Agent")
+# -------------------------
+# MODULES
+# -------------------------
+modules = [
+    "Descriptive Stats",
+    "Hypothesis Testing",
+    "ANOVA",
+    "Linear Regression"
+]
 
-topic = st.selectbox("Select Topic", [
-    "Descriptive",
-    "Normality",
-    "Subset Analysis",
-    "Probability",
-    "Hypothesis Testing"
-])
+st.title("📊 Business Analytics Learning System")
 
-# -----------------------------
-# QUESTION GENERATOR
-# -----------------------------
-# -----------------------------
-# MEMORY-AWARE QUESTION ENGINE
-# -----------------------------
-def generate_question(topic, df):
+name = st.text_input("Student Name")
 
-    if "history" not in st.session_state:
-        st.session_state.history = []
+difficulty = st.selectbox("Select Difficulty", ["Easy","Medium","Hard"])
 
-    vars_num = ["Marketing","Cost","Satisfaction","Productivity","Market_Share"]
-    concepts = ["mean","sd","cv","skew","subset","compare","prob"]
+st.write(f"### Current Module: {modules[st.session_state.module]}")
 
-    # Avoid repetition
-    for _ in range(20):
+# -------------------------
+# QUESTION ENGINE
+# -------------------------
+def get_question(module, qtype):
 
-        var = np.random.choice(vars_num)
-        concept = np.random.choice(concepts)
-
-        signature = f"{topic}-{var}-{concept}"
-
-        if signature not in st.session_state.history:
-            st.session_state.history.append(signature)
-            if len(st.session_state.history) > 20:
-                st.session_state.history.pop(0)
-            break
-
-    # -----------------------------
+    # -------------------------
     # DESCRIPTIVE
-    # -----------------------------
-    if topic == "Descriptive":
+    # -------------------------
+    if module == 0:
 
-        if concept == "mean":
+        # TYPE 1: variability comparison
+        if qtype == 0:
+            v1, v2 = np.random.choice(["Marketing","Cost","Satisfaction"],2,replace=False)
+
             return {
-                "q": f"Compute mean of {var}",
-                "type": "numeric",
-                "answer": df[var].mean(),
-                "explanation": "Mean = average"
+                "q": f"Which variable has higher variability: {v1} or {v2}?",
+                "type":"mcq",
+                "options":[v1,v2],
+                "answer": v1 if df[v1].std()>df[v2].std() else v2,
+                "explanation":"Compare standard deviations"
             }
 
-        if concept == "sd":
+        # TYPE 2: probability
+        if qtype == 1:
+            x = np.random.choice(df["Marketing"])
+            mu, sd = df["Marketing"].mean(), df["Marketing"].std()
+
             return {
-                "q": f"Compute standard deviation of {var}",
-                "type": "numeric",
-                "answer": df[var].std(),
-                "explanation": "SD measures dispersion"
+                "q": f"Compute P(X < {round(x,2)}) assuming normal distribution",
+                "type":"numeric",
+                "answer": stats.norm.cdf(x,mu,sd),
+                "explanation":"Normal distribution CDF"
             }
 
-        if concept == "cv":
+        # TYPE 3: normality + skew
+        if qtype == 2:
             return {
-                "q": f"Compute coefficient of variation of {var}",
-                "type": "numeric",
-                "answer": df[var].std()/df[var].mean(),
-                "explanation": "CV = SD / Mean"
+                "q":"If skewness > 0 and kurtosis > 3, interpret distribution",
+                "type":"text",
+                "answer":"right skew heavy tail",
+                "explanation":"Positive skew and leptokurtic distribution"
             }
 
-        if concept == "compare":
-            v2 = np.random.choice(vars_num)
+    # -------------------------
+    # HYPOTHESIS
+    # -------------------------
+    if module == 1:
+
+        if qtype == 0:
             return {
-                "q": f"Which has higher variability: {var} or {v2}?",
-                "type": "mcq",
-                "options": [var, v2],
-                "answer": var if df[var].std() > df[v2].std() else v2,
-                "explanation": "Compare standard deviations"
+                "q":"Data not normal. Which test for 2 independent samples?",
+                "type":"mcq",
+                "options":["t-test","Mann-Whitney","ANOVA"],
+                "answer":"Mann-Whitney",
+                "explanation":"Non-parametric test"
             }
 
-        if concept == "skew":
+        if qtype == 1:
             return {
-                "q": f"If mean > median for {var}, distribution is?",
-                "type": "mcq",
-                "options": ["Positive skew","Negative skew"],
-                "answer": "Positive skew",
-                "explanation": "Mean > median → right skew"
+                "q":"p-value = 0.04. Decision?",
+                "type":"mcq",
+                "options":["Reject null","Do not reject"],
+                "answer":"Reject null",
+                "explanation":"p < 0.05"
             }
 
-    # -----------------------------
-    # NORMALITY
-    # -----------------------------
-    if topic == "Normality":
-
-        return {
-            "q": f"Shapiro test gives p=0.08. What do you conclude?",
-            "type": "mcq",
-            "options": ["Normal","Not normal"],
-            "answer": "Normal",
-            "explanation": "p > 0.05 → normal"
-        }
-
-    # -----------------------------
-    # SUBSET ANALYSIS
-    # -----------------------------
-    if topic == "Subset Analysis":
-
-        region = np.random.choice(df["Region"].unique())
-        segment = np.random.choice(df["Segment"].unique())
-
-        sub = df[(df["Region"]==region) & (df["Segment"]==segment)]
-
-        return {
-            "q": f"Compute mean Sales for Region={region}, Segment={segment}",
-            "type": "numeric",
-            "answer": sub["Sales"].mean(),
-            "explanation": "Filtered subset mean"
-        }
-
-    # -----------------------------
-    # PROBABILITY
-    # -----------------------------
-    if topic == "Probability":
-
-        x = np.random.choice(df["Marketing"])
-        mu = df["Marketing"].mean()
-        sd = df["Marketing"].std()
-
-        return {
-            "q": f"Compute P(X < {round(x,2)}) assuming normal distribution",
-            "type": "numeric",
-            "answer": stats.norm.cdf(x, mu, sd),
-            "explanation": "Use normal CDF"
-        }
-
-    # -----------------------------
-    # HYPOTHESIS TESTING
-    # -----------------------------
-    if topic == "Hypothesis Testing":
-
-        case = np.random.choice(["decision","test_select","pvalue"])
-
-        if case == "decision":
+        if qtype == 2:
             return {
-                "q": "p-value = 0.03. What is decision?",
-                "type": "mcq",
-                "options": ["Reject null","Do not reject"],
-                "answer": "Reject null",
-                "explanation": "p < alpha → reject"
+                "q":"Variances unequal, normal data. Which test?",
+                "type":"mcq",
+                "options":["Student t","Welch t","Chi-square"],
+                "answer":"Welch t",
+                "explanation":"Handles unequal variance"
             }
 
-        if case == "test_select":
+    # -------------------------
+    # ANOVA
+    # -------------------------
+    if module == 2:
+
+        if qtype == 0:
             return {
-                "q": "Data not normal. Which test for 2 independent samples?",
-                "type": "mcq",
-                "options": ["t-test","Mann-Whitney","ANOVA"],
-                "answer": "Mann-Whitney",
-                "explanation": "Non-parametric test"
+                "q":"Data normal, unequal variances. Which ANOVA?",
+                "type":"mcq",
+                "options":["Fisher","Welch","Kruskal"],
+                "answer":"Welch",
+                "explanation":"Welch ANOVA"
             }
 
-        if case == "pvalue":
+        if qtype == 1:
             return {
-                "q": "What does p-value represent?",
-                "type": "text",
-                "answer": "probability under null",
-                "explanation": "Probability of observing data under null hypothesis"
+                "q":"Which post-hoc for unequal variance?",
+                "type":"mcq",
+                "options":["Tukey","Games-Howell","DSCF"],
+                "answer":"Games-Howell",
+                "explanation":"Unequal variance case"
             }
 
-# -----------------------------
-# GENERATE NEW QUESTION
-# -----------------------------
-if st.button("Next Question") or st.session_state.current_q is None:
-    st.session_state.current_q = generate_question(topic, df)
+        if qtype == 2:
+            return {
+                "q":"Non-normal ANOVA alternative?",
+                "type":"mcq",
+                "options":["Kruskal-Wallis","t-test","Z-test"],
+                "answer":"Kruskal-Wallis",
+                "explanation":"Non-parametric ANOVA"
+            }
 
-q = st.session_state.current_q
+    # -------------------------
+    # REGRESSION
+    # -------------------------
+    if module == 3:
+
+        if qtype == 0:
+            return {
+                "q":"Test for heteroskedasticity?",
+                "type":"mcq",
+                "options":["Durbin Watson","Breusch Pagan","VIF"],
+                "answer":"Breusch Pagan",
+                "explanation":"Checks variance of errors"
+            }
+
+        if qtype == 1:
+            return {
+                "q":"Test for autocorrelation?",
+                "type":"mcq",
+                "options":["Durbin Watson","VIF","Shapiro"],
+                "answer":"Durbin Watson",
+                "explanation":"Time series residual correlation"
+            }
+
+        if qtype == 2:
+            return {
+                "q":"High VIF indicates?",
+                "type":"mcq",
+                "options":["Heteroskedasticity","Multicollinearity","Normality"],
+                "answer":"Multicollinearity",
+                "explanation":"Collinearity issue"
+            }
+
+
+# -------------------------
+# ASK QUESTION
+# -------------------------
+q = get_question(st.session_state.module, st.session_state.qtype)
 
 st.subheader(q["q"])
 
-# -----------------------------
-# INPUT
-# -----------------------------
-if q["type"] == "numeric":
-    user = st.number_input("Your Answer")
+if q["type"] == "mcq":
+    ans = st.radio("", q["options"])
 
-elif q["type"] == "mcq":
-    user = st.radio("Choose", q["options"])
+elif q["type"] == "numeric":
+    ans = st.number_input("Answer")
 
-# -----------------------------
+else:
+    ans = st.text_area("Answer")
+
+# -------------------------
 # SUBMIT
-# -----------------------------
-if st.button("Submit Answer"):
-
-    st.session_state.total += 1
+# -------------------------
+if st.button("Submit"):
 
     correct = False
 
     if q["type"] == "numeric":
-        correct = abs(user - q["answer"]) < 0.5
+        correct = abs(ans - q["answer"]) < 0.5
+
+    elif q["type"] == "mcq":
+        correct = ans == q["answer"]
 
     else:
-        correct = user == q["answer"]
+        correct = len(ans) > 10
 
     if correct:
-        st.success("✅ Correct")
-        st.session_state.score += 1
+        st.success("Correct")
+
+        st.session_state.qtype += 1
+
+        if st.session_state.qtype > 2:
+
+            st.success("🎉 MODULE CLEARED")
+
+            st.session_state.cleared.append(modules[st.session_state.module])
+
+            st.write(f"Certificate: {name} cleared {modules[st.session_state.module]} at {difficulty} level")
+
+            st.session_state.module += 1
+            st.session_state.qtype = 0
+
     else:
         st.error(f"""
-❌ Incorrect  
+Incorrect  
 
-Correct Answer ≈ {round(q['answer'],3)}  
+Correct: {q['answer']}  
 
-📘 Explanation: {q['explanation']}  
-
-⚠️ Likely mistake:
-- Formula error
-- Using wrong subset
-- Concept confusion
+Explanation: {q['explanation']}  
+Try similar question again
 """)
-
-    st.write(f"Score: {st.session_state.score}/{st.session_state.total}")
