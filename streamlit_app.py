@@ -1,277 +1,195 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import random
 from scipy import stats
-import streamlit as st
+from openai import OpenAI
 
+# -----------------------
+# OPENAI CLIENT
+# -----------------------
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-st.set_page_config(layout="wide")
+# -----------------------
+# DATASET GENERATION
+# -----------------------
+np.random.seed(42)
+n = 120
 
-# -------------------------
-# DATASET
-# -------------------------
-if "df" not in st.session_state:
-    np.random.seed(42)
+df = pd.DataFrame({
+    "Sales": np.random.normal(200, 50, n),
+    "Cost": np.random.normal(120, 30, n),
+    "Marketing": np.random.normal(60, 20, n),
+    "Satisfaction": np.random.normal(70, 10, n),
+    "Delivery_Time": np.random.normal(5, 1.5, n),
+    "Region": np.random.choice(["North", "South", "East"], n),
+    "Segment": np.random.choice(["Retail", "Corporate", "SME"], n),
+    "Channel": np.random.choice(["Online", "Offline"], n)
+})
 
-    df = pd.DataFrame({
-        "Marketing": np.random.normal(50,10,120),
-        "Cost": np.random.normal(40,12,120),
-        "Satisfaction": np.random.normal(70,8,120),
-        "Productivity": np.random.normal(60,15,120),
-        "Market_Share": np.random.normal(30,5,120),
-        "Region": np.random.choice(["North","South","East","West"],120),
-        "Segment": np.random.choice(["Retail","Corporate"],120),
-        "Strategy": np.random.choice(["Aggressive","Conservative"],120)
-    })
+# -----------------------
+# MODULE FLOW
+# -----------------------
+modules = ["Descriptive Stats", "Hypothesis Testing", "ANOVA", "Regression"]
 
-    df["Sales"] = 0.5*df["Marketing"] + 0.3*df["Satisfaction"] - 0.2*df["Cost"] + np.random.normal(0,5,120)
-
-    st.session_state.df = df
-
-df = st.session_state.df
-
-# -------------------------
-# INIT STATE
-# -------------------------
+# -----------------------
+# SESSION STATE INIT
+# -----------------------
 if "module" not in st.session_state:
     st.session_state.module = 0
-if "qtype" not in st.session_state:
-    st.session_state.qtype = 0
-if "prev_difficulty" not in st.session_state:
-    st.session_state.prev_difficulty = None
 
-modules = [
-    "Descriptive Stats",
-    "Hypothesis Testing",
-    "ANOVA",
-    "Linear Regression"
-]
+if "question" not in st.session_state:
+    st.session_state.question = None
 
-# -------------------------
-# HEADER
-# -------------------------
-st.title("📊 Business Analytics Learning System")
+if "answered_correct" not in st.session_state:
+    st.session_state.answered_correct = False
 
-name = st.text_input("Student Name")
+# -----------------------
+# AI QUESTION GENERATOR
+# -----------------------
+def generate_ai_question(module, difficulty):
+    prompt = f"""
+    You are a statistics professor.
 
-difficulty = st.selectbox("Select Difficulty", ["Easy","Medium","Hard"])
+    Generate a {difficulty} level question for {module}.
 
-# RESET when difficulty changes
-if st.session_state.prev_difficulty != difficulty:
-    st.session_state.module = 0
-    st.session_state.qtype = 0
-    st.session_state.prev_difficulty = difficulty
-    st.rerun()
+    RULES:
+    - Do NOT give answers in the question
+    - Use realistic business context
+    - Require interpretation or calculation
+    - Avoid trivial questions
+    - Provide:
+        1. question
+        2. numeric answer
+        3. detailed explanation
 
-# -------------------------
-# END CONDITION
-# -------------------------
-if st.session_state.module >= len(modules):
-    st.success("🎓 Congratulations! You have completed ALL modules.")
-    st.stop()
+    Format:
+    QUESTION:
+    ...
+    ANSWER:
+    ...
+    EXPLANATION:
+    ...
+    """
 
-st.subheader(f"Current Module: {modules[st.session_state.module]}")
+    response = client.chat.completions.create(
+        model="gpt-5-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7
+    )
 
-# -------------------------
-# DESCRIPTIVE QUESTIONS
-# -------------------------
-def descriptive_question(qtype):
+    text = response.choices[0].message.content
 
-    var = np.random.choice(["Marketing","Cost","Satisfaction"])
-    cat = np.random.choice(["Region","Segment"])
+    try:
+        q = text.split("QUESTION:")[1].split("ANSWER:")[0].strip()
+        ans = float(text.split("ANSWER:")[1].split("EXPLANATION:")[0].strip())
+        exp = text.split("EXPLANATION:")[1].strip()
+    except:
+        q, ans, exp = text, 0, "Parsing error"
 
-    # Q1: variability
-    if qtype == 0:
-        v1, v2 = np.random.choice(["Marketing","Cost","Satisfaction"],2,replace=False)
+    return {"q": q, "answer": ans, "explanation": exp}
 
-        return {
-            "q": f"Which variable has higher variability: {v1} or {v2}?",
-            "type":"mcq",
-            "options":[v1,v2],
-            "answer": v1 if df[v1].std()>df[v2].std() else v2,
-            "explanation": f"""
-Compare standard deviations:
+# -----------------------
+# FALLBACK (NON-AI)
+# -----------------------
+def fallback_question(module, difficulty):
 
-SD({v1}) = {round(df[v1].std(),2)}
-SD({v2}) = {round(df[v2].std(),2)}
-
-Higher SD ⇒ more variability.
-"""
-        }
-
-    # Q2: probability
-    if qtype == 1:
+    if module == "Descriptive Stats":
+        x = df["Sales"]
+        y = df["Cost"]
 
         if difficulty == "Easy":
             return {
-                "q": f"For variable {var}, compute P(X < mean) assuming normal distribution.",
-                "type":"numeric",
-                "answer":0.5,
-                "explanation":"For normal distribution: P(X < mean) = 0.5"
+                "q": "Which variable has higher variability: Sales or Cost?",
+                "options": ["Sales", "Cost"],
+                "answer": "Sales",
+                "explanation": "Compare standard deviations."
             }
-    
+
         elif difficulty == "Medium":
-            filt = df[cat].unique()[0]
-    
+            subset = df[df["Region"] == "East"]["Sales"]
+            mean = subset.mean()
+            sd = subset.std()
+            val = mean - sd
+
+            prob = stats.norm.cdf(val, mean, sd)
+
             return {
-                "q": f"""
-Using the dataset:
+                "q": f"For Region = East, compute P(Sales < {round(val,2)}).",
+                "answer": round(prob, 2),
+                "explanation": "Compute mean & SD, then use normal CDF."
+            }
 
-1. Filter rows where {cat} = {filt}
-2. Compute mean (μ) and standard deviation (σ) of {var}
-3. Compute:
+        else:
+            return {
+                "q": "Compare skewness of Sales and Marketing and interpret.",
+                "answer": 0,
+                "explanation": "Higher skew means asymmetry."
+            }
 
-P({var} < μ)
+    return generate_ai_question(module, difficulty)
 
-Enter final probability
-""",
-            "type":"numeric",
-            "answer":0.5,
-            "explanation":"Even after filtering: P(X < mean) = 0.5"
-        }
+# -----------------------
+# UI
+# -----------------------
+st.title("📊 Business Analytics Learning System")
 
-    else:  # HARD
-        filt = df[cat].unique()[0]
-        subset = df[df[cat] == filt]
+name = st.text_input("Student Name")
+difficulty = st.selectbox("Select Difficulty", ["Easy", "Medium", "Hard"])
 
-        x = float(np.random.choice(subset[var]))
-        mu = subset[var].mean()
-        sd = subset[var].std()
+current_module = modules[st.session_state.module]
+st.subheader(f"Current Module: {current_module}")
 
-        return {
-            "q": f"""
-Using the dataset:
+# -----------------------
+# GENERATE QUESTION
+# -----------------------
+if st.session_state.question is None or st.session_state.answered_correct:
+    try:
+        q = generate_ai_question(current_module, difficulty)
+    except:
+        q = fallback_question(current_module, difficulty)
 
-1. Filter rows where {cat} = {filt}
-2. Compute mean (μ) and standard deviation (σ)
-3. Compute:
+    st.session_state.question = q
+    st.session_state.answered_correct = False
 
-P({var} < {round(x,2)})
-
-Enter value
-""",
-            "type":"numeric",
-            "answer": stats.norm.cdf(x, mu, sd),
-            "explanation": f"""
-Z = (X - μ)/σ
-
-Then use normal CDF.
-"""
-        }
-
-# -------------------------
-# OTHER MODULES (CLEAN)
-# -------------------------
-def hypothesis_question(qtype):
-
-    questions = [
-        ("Non-normal data, 2 independent samples?", ["t-test","Mann-Whitney","ANOVA"], "Mann-Whitney"),
-        ("p-value = 0.03 → decision?", ["Reject","Do not reject"], "Reject"),
-        ("Normal but unequal variance?", ["Student t","Welch t"], "Welch t")
-    ]
-
-    q = questions[qtype]
-
-    return {
-        "q": q[0],
-        "type":"mcq",
-        "options": q[1],
-        "answer": q[2],
-        "explanation":"Based on statistical test selection rules"
-    }
-
-def anova_question(qtype):
-
-    questions = [
-        ("Non-normal, 3 groups?", ["ANOVA","Kruskal"], "Kruskal"),
-        ("Normal unequal variance?", ["Fisher","Welch"], "Welch"),
-        ("Post-hoc unequal variance?", ["Tukey","Games-Howell"], "Games-Howell")
-    ]
-
-    q = questions[qtype]
-
-    return {
-        "q": q[0],
-        "type":"mcq",
-        "options": q[1],
-        "answer": q[2],
-        "explanation":"ANOVA decision logic"
-    }
-
-def regression_question(qtype):
-
-    questions = [
-        ("Detect heteroskedasticity?", ["Durbin","Breusch Pagan","VIF"], "Breusch Pagan"),
-        ("High VIF means?", ["Normality","Multicollinearity"], "Multicollinearity"),
-        ("Durbin Watson checks?", ["Variance","Autocorrelation"], "Autocorrelation")
-    ]
-
-    q = questions[qtype]
-
-    return {
-        "q": q[0],
-        "type":"mcq",
-        "options": q[1],
-        "answer": q[2],
-        "explanation":"Regression diagnostics"
-    }
-
-# -------------------------
-# QUESTION SELECT
-# -------------------------
-if st.session_state.module == 0:
-    q = descriptive_question(st.session_state.qtype)
-elif st.session_state.module == 1:
-    q = hypothesis_question(st.session_state.qtype)
-elif st.session_state.module == 2:
-    q = anova_question(st.session_state.qtype)
-else:
-    q = regression_question(st.session_state.qtype)
-
-# -------------------------
-# DISPLAY
-# -------------------------
+# -----------------------
+# DISPLAY QUESTION
+# -----------------------
+q = st.session_state.question
 st.write(q["q"])
 
-if q["type"] == "mcq":
-    ans = st.radio("", q["options"])
-elif q["type"] == "numeric":
-    ans = st.number_input("Answer")
-else:
-    ans = st.text_area("Answer")
+# -----------------------
+# ANSWER INPUT
+# -----------------------
+user_ans = st.number_input("Your Answer", value=0.0)
 
-# -------------------------
-# EVALUATION
-# -------------------------
 if st.button("Submit"):
 
-    if q["type"] == "numeric":
-        correct = abs(ans - q["answer"]) < 0.05
-    elif q["type"] == "mcq":
-        correct = ans == q["answer"]
-    else:
-        correct = len(ans.strip()) > 15
+    correct = False
+
+    try:
+        correct = abs(user_ans - float(q["answer"])) < 0.1
+    except:
+        correct = False
 
     if correct:
-        st.success("✅ Correct")
+        st.success("✅ Correct!")
 
-        st.session_state.qtype += 1
+        st.session_state.answered_correct = True
 
-        if st.session_state.qtype > 2:
-            st.success("🎉 Module Cleared")
+        # move module forward if needed
+        if random.random() > 0.6:
             st.session_state.module += 1
-            st.session_state.qtype = 0
 
-        st.rerun()
+            if st.session_state.module >= len(modules):
+                st.success("🎓 You completed all modules!")
+                st.stop()
 
     else:
-        st.error(f"""
-❌ Incorrect
+        st.error("❌ Incorrect")
 
-Correct Answer: {q['answer']}
+        st.write("### Detailed Explanation:")
+        st.write(q["explanation"])
 
-Explanation:
-{q['explanation']}
-
-👉 Try again
-""")
+        # keep same question (adaptive loop)
+        st.session_state.answered_correct = False
