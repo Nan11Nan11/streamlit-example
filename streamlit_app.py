@@ -4,7 +4,7 @@ import numpy as np
 from scipy import stats
 import streamlit as st
 
-st.write("API key loaded:", "OPENAI_API_KEY" in st.secrets)
+
 st.set_page_config(layout="wide")
 
 # -------------------------
