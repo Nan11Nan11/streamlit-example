@@ -295,12 +295,16 @@ else:
 # -------------------------
 st.write(q["q"])
 
+question_key = f"{st.session_state.module}_{st.session_state.qtype}"
+
 if q["type"] == "mcq":
-    ans = st.radio("", q["options"], key="ans")
+    ans = st.radio("", q["options"], key=f"mcq_{question_key}")
+
 elif q["type"] == "numeric":
-    ans = st.number_input("Answer", key="ans")
+    ans = st.number_input("Answer", key=f"num_{question_key}")
+
 else:
-    ans = st.text_area("Answer", key="ans")
+    ans = st.text_area("Answer", key=f"text_{question_key}")
 
 # -------------------------
 # EVALUATE
