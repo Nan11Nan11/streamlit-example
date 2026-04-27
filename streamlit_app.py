@@ -141,17 +141,17 @@ if mode == "Student":
                 cv = df.std() / df.mean()
                 most_vol = cv.idxmax()
 
-    if abs(responses["Q1"] - correct_mean) < 0.5:
-        total += 1
-
-    if abs(responses["Q2"] - correct_sd) < 0.5:
-        total += 1
-
-    if most_vol.lower() in responses["Q3"].lower():
-        total += 1
-
-    if responses["Q5"] == "Dispersion":
-        total += 1
+                if abs(responses["Q1"] - correct_mean) < 0.5:
+                    total += 1
+            
+                if abs(responses["Q2"] - correct_sd) < 0.5:
+                    total += 1
+            
+                if most_vol.lower() in responses["Q3"].lower():
+                    total += 1
+            
+                if responses["Q5"] == "Dispersion":
+                    total += 1
 
     # ----------------------------
     # RESULT + PROFICIENCY (INSIDE BLOCK)
