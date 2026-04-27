@@ -61,7 +61,12 @@ if mode == "Student":
         if "streak" not in st.session_state:
             st.session_state["streak"] = 0
 
-        if st.session_state["current_q"] is None:
+        # Initialize session variables safely
+        if "streak" not in st.session_state:
+            st.session_state["streak"] = 0
+
+        if "current_q" not in st.session_state:
+            st.session_state["current_q"] = np.random.choice(["mean", "sd", "cv"])
             st.session_state["current_q"] = np.random.choice(["mean", "sd", "cv"])
 
         qtype = st.session_state["current_q"]
