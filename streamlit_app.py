@@ -109,7 +109,7 @@ Higher SD ⇒ more variability.
             }
 
         elif difficulty == "Medium":
-    filt = df[cat].unique()[0]
+            filt = df[cat].unique()[0]
 
     return {
         "q": f"""
