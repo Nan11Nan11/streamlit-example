@@ -44,18 +44,13 @@ def generate_dataset():
 # -----------------------------
 def generate_question(df):
 
-    # Always recompute grouping from THIS dataset
     g1 = df[df["HeartRate"] > 75]["BodyTemp"]
     g2 = df[df["HeartRate"] <= 75]["BodyTemp"]
 
-    # Normality
     p1 = stats.shapiro(g1)[1]
     p2 = stats.shapiro(g2)[1]
-
-    # Variance
     lev_p = stats.levene(g1, g2)[1]
 
-    # Decision logic (Jamovi style)
     if p1 > 0.05 and p2 > 0.05:
         if lev_p > 0.05:
             test = "Student t-test"
@@ -68,7 +63,16 @@ def generate_question(df):
         stat, pval = stats.mannwhitneyu(g1, g2)
 
     return {
-        "question": "Split data:\n\nGroup 1: HeartRate > 75\nGroup 2: HeartRate ≤ 75\n\nTest if BodyTemp differs.\n\nEnter p-value (approx):",
+        "question": """
+Split data:
+
+Group 1: HeartRate > 75  
+Group 2: HeartRate ≤ 75  
+
+Test if BodyTemp differs.
+
+👉 Enter approximate p-value
+""",
         "type": "numeric",
         "answer": round(pval, 4),
         "test": test,
@@ -111,6 +115,11 @@ if st.session_state.df is not None:
 if st.session_state.question:
 
     q = st.session_state.question
+
+    # 🔒 SAFETY CHECK (ADD HERE)
+    if "question" not in q:
+        st.error("Question not generated properly. Please restart session.")
+        st.stop()
 
     st.subheader("Current Question")
     st.write(q["question"])
