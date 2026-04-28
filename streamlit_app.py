@@ -2,52 +2,51 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from scipy import stats
-
 from openai import OpenAI
+
+# -----------------------------
+# OPENAI
+# -----------------------------
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 def ai_explain(context):
-
     prompt = f"""
 You are a statistics professor teaching undergraduate business students.
 
-Explain the following result in SIMPLE, intuitive terms:
+Explain the following result in SIMPLE terms:
 
 {context}
 
-Rules:
 - No jargon
 - Step-by-step
-- Explain like Jamovi interpretation
-- Include decision logic (reject/not reject)
+- Explain decision (reject / not reject)
 """
-
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}]
     )
-
     return response.choices[0].message.content
 
+# -----------------------------
+# PAGE
+# -----------------------------
 st.set_page_config(page_title="Business Analytics Learning System", layout="wide")
 
 # -----------------------------
-# STATE INIT
+# SESSION STATE INIT
 # -----------------------------
-modules = ["descriptive", "hypothesis", "regression"]
-
-if "module_index" not in st.session_state:
-    st.session_state.module_index = 0
-if "question_step" not in st.session_state:
-    st.session_state.question_step = 0
 if "df" not in st.session_state:
     st.session_state.df = None
+
 if "question" not in st.session_state:
     st.session_state.question = None
+
 if "answered" not in st.session_state:
     st.session_state.answered = False
+
 if "correct" not in st.session_state:
     st.session_state.correct = None
+
 if "user_ans" not in st.session_state:
     st.session_state.user_ans = None
 
@@ -70,7 +69,9 @@ def generate_dataset():
 # -----------------------------
 # QUESTION GENERATORS
 # -----------------------------
-def generate_descriptive_question(df):
+def generate_descriptive_question():
+    df = st.session_state.df
+
     col = np.random.choice(["HeartRate", "BodyTemp"])
     mean_val = df[col].mean()
 
@@ -81,7 +82,8 @@ def generate_descriptive_question(df):
         "explanation": f"Mean of {col} = {round(mean_val,2)}"
     }
 
-def generate_hypothesis_question(df):
+def generate_hypothesis_question():
+    df = st.session_state.df
 
     g1 = df[df["HeartRate"] > 75]["BodyTemp"]
     g2 = df[df["HeartRate"] <= 75]["BodyTemp"]
@@ -111,7 +113,6 @@ Group 1: HeartRate > 75
 Group 2: HeartRate ≤ 75  
 
 👉 What is the correct conclusion?
-
 """,
         "type": "mcq",
         "options": [
@@ -124,13 +125,15 @@ Group 2: HeartRate ≤ 75
         "context": f"""
 Test: {test}
 p-value: {round(pval,4)}
-Normality: {round(p1,3)}, {round(p2,3)}
-Levene: {round(lev_p,3)}
+Normality p-values: {round(p1,4)}, {round(p2,4)}
+Levene p-value: {round(lev_p,4)}
 Decision: {decision}
 """
     }
 
-def generate_regression_question(df):
+def generate_regression_question():
+    df = st.session_state.df
+
     x = df["HeartRate"]
     y = df["BodyTemp"]
 
@@ -144,19 +147,17 @@ def generate_regression_question(df):
     }
 
 # -----------------------------
-# ROUTER
+# QUESTION ROUTER
 # -----------------------------
-def generate_question(df, difficulty):
-    module = modules[st.session_state.module_index]
+def generate_question():
+    module = np.random.choice(["descriptive", "hypothesis", "regression"])
 
     if module == "descriptive":
-        return generate_descriptive_question(df)
-
+        return generate_descriptive_question()
     elif module == "hypothesis":
-        return generate_hypothesis_question(df)
-
+        return generate_hypothesis_question()
     else:
-        return generate_regression_question(df)
+        return generate_regression_question()
 
 # -----------------------------
 # UI
@@ -165,19 +166,13 @@ st.title("📊 Business Analytics Learning System")
 
 student = st.text_input("Student Name", "ABC123")
 
-difficulty = st.selectbox(
-    "Select Difficulty",
-    ["Easy", "Medium", "Hard"]
-)
-
 # -----------------------------
 # START SESSION
 # -----------------------------
 if st.button("🚀 Start New Session"):
+
     st.session_state.df = generate_dataset()
-    st.session_state.module_index = 0
-    st.session_state.question_step = 0
-    st.session_state.question = generate_question(st.session_state.df, difficulty)
+    st.session_state.question = generate_question()
     st.session_state.answered = False
     st.session_state.correct = None
 
@@ -191,10 +186,16 @@ if st.session_state.df is not None:
     st.dataframe(st.session_state.df.head(15), use_container_width=True)
 
 # -----------------------------
-# QUESTION
+# SHOW QUESTION
 # -----------------------------
 if st.session_state.question:
+
     q = st.session_state.question
+
+    # 🔥 SHOW JAMOVI STYLE OUTPUT
+    if "context" in q:
+        st.markdown("### 📊 Jamovi Output (Simplified)")
+        st.code(q["context"])
 
     st.subheader("Current Question")
     st.write(q["question"])
@@ -207,8 +208,7 @@ if st.session_state.question:
     if st.button("Submit"):
 
         if q["type"] == "numeric":
-            tol = 0.02
-            correct = abs(user_ans - q["answer"]) <= tol
+            correct = abs(user_ans - q["answer"]) <= 0.05
         else:
             correct = user_ans == q["answer"]
 
@@ -222,13 +222,9 @@ if st.session_state.question:
 # RESULT
 # -----------------------------
 if st.session_state.answered:
+
     q = st.session_state.question
-    # -----------------------------
-    # SHOW JAMOVI-LIKE OUTPUT
-    # -----------------------------
-    if "context" in q:
-        st.markdown("### 📊 Jamovi Output (Simplified)")
-        st.code(q["context"])
+
     if st.session_state.correct:
         st.success("Correct ✅")
     else:
@@ -239,31 +235,19 @@ if st.session_state.answered:
 
     st.markdown("### 🔍 Explanation")
 
-    # Use AI explanation if context exists (hypothesis questions)
+    # 🔥 AI explanation for hypothesis
     if "context" in q:
         explanation = ai_explain(q["context"])
     else:
         explanation = q["explanation"]
-    
+
     st.write(explanation)
 
     # -----------------------------
-    # NEXT QUESTION + PROGRESSION
+    # NEXT QUESTION
     # -----------------------------
     if st.button("Next Question"):
-
-        if st.session_state.correct:
-            st.session_state.question_step += 1
-
-            if st.session_state.question_step >= 2:
-                st.session_state.module_index += 1
-                st.session_state.question_step = 0
-
-                if st.session_state.module_index >= len(modules):
-                    st.success("🎓 All modules completed!")
-                    st.stop()
-
-        st.session_state.question = generate_question(st.session_state.df, difficulty)
+        st.session_state.question = generate_question()
         st.session_state.answered = False
         st.session_state.correct = None
 
