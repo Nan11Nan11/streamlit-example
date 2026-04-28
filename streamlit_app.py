@@ -4,25 +4,104 @@ import pandas as pd
 from scipy import stats
 import statsmodels.api as sm
 
+# -----------------------------
+# SESSION STATE INIT
+# -----------------------------
+if "df" not in st.session_state:
+    st.session_state.df = generate_dataset()
+
+if "q" not in st.session_state:
+    st.session_state.q = None
+
+if "answered" not in st.session_state:
+    st.session_state.answered = False
+
+if "correct" not in st.session_state:
+    st.session_state.correct = None
 st.set_page_config(page_title="Business Analytics Learning System")
 
 # -----------------------------
 # DATA GENERATION
 # -----------------------------
-def generate_dataset(n=60):
-    heart_rate = np.random.randint(55, 95, n)
+import numpy as np
+import pandas as pd
+
+def generate_dataset(n=120):
+
+    np.random.seed()
+
+    # -----------------------------
+    # NUMERIC VARIABLES
+    # -----------------------------
+    heart_rate = np.random.normal(72, 8, n)
+    age = np.random.randint(18, 65, n)
+    income = np.random.normal(50000, 15000, n)
+    stress = np.random.normal(5, 2, n)
+
+    # -----------------------------
+    # CATEGORICAL VARIABLES
+    # -----------------------------
     gender = np.random.choice(["Male", "Female"], n)
-    body_temp = 97 + 0.03 * heart_rate + np.random.normal(0, 0.5, n)
+    exercise = np.random.choice(["Low", "Medium", "High"], n, p=[0.3, 0.5, 0.2])
+    smoker = np.random.choice(["Yes", "No"], n, p=[0.3, 0.7])
+
+    # -----------------------------
+    # DEPENDENT VARIABLE (BodyTemp)
+    # Structured relationship (important)
+    # -----------------------------
+    body_temp = (
+        97
+        + 0.03 * heart_rate
+        + 0.01 * stress
+        - 0.002 * age
+        + np.random.normal(0, 0.3, n)
+    )
 
     df = pd.DataFrame({
-        "HeartRate": heart_rate,
-        "BodyTemp": body_temp,
-        "Gender": gender
+        "HeartRate": heart_rate.round(0),
+        "BodyTemp": body_temp.round(2),
+        "Age": age,
+        "Income": income.round(0),
+        "StressScore": stress.round(1),
+        "Gender": gender,
+        "ExerciseLevel": exercise,
+        "Smoker": smoker
     })
 
-    df["HT_GT_75"] = (df["HeartRate"] > 75).astype(int)
     return df
+# -----------------------------
+# SHOW DATASET (VISIBLE SAMPLE)
+# -----------------------------
+st.subheader("📊 Dataset (Preview)")
+st.dataframe(st.session_state.df.head(15))
+df = st.session_state.df
+st.markdown("""
+### 📘 Context
 
+This dataset represents health and lifestyle indicators of individuals.
+
+- HeartRate: beats per minute  
+- BodyTemp: body temperature (°F)  
+- Age: years  
+- Income: annual income  
+- StressScore: scale 1–10  
+- ExerciseLevel: Low / Medium / High  
+- Smoker: Yes / No  
+
+👉 You will analyze this dataset using statistical tools.
+""")
+
+# -----------------------------
+# DOWNLOAD FULL DATASET
+# -----------------------------
+csv = st.session_state.df.to_csv(index=False).encode('utf-8')
+
+st.download_button(
+    label="⬇️ Download Full Dataset (CSV)",
+    data=csv,
+    file_name=f"{st.session_state.student_name}_dataset.csv",
+    mime="text/csv"
+)
 # -----------------------------
 # JAMOVI ENGINES
 # -----------------------------
@@ -172,9 +251,13 @@ def generate_question(df, difficulty):
 # -----------------------------
 if "df" not in st.session_state:
     st.session_state.df = generate_dataset()
-    st.session_state.q = None
+
+if st.button("🔄 Start New Session"):
+    st.session_state.df = generate_dataset()
+    st.session_state.question = None
     st.session_state.answered = False
     st.session_state.correct = None
+    st.rerun()
 
 # -----------------------------
 # UI
@@ -182,7 +265,23 @@ if "df" not in st.session_state:
 st.title("📊 Business Analytics Learning System")
 
 difficulty = st.selectbox("Select Difficulty", ["Easy", "Medium", "Hard"])
+# -----------------------------
+# SHOW DATA
+# -----------------------------
+st.subheader("Dataset")
+st.dataframe(st.session_state.df.head(15))
 
+# -----------------------------
+# DOWNLOAD BUTTON
+# -----------------------------
+csv = st.session_state.df.to_csv(index=False).encode('utf-8')
+
+st.download_button(
+    label="⬇️ Download Full Dataset (CSV)",
+    data=csv,
+    file_name="dataset.csv",
+    mime="text/csv"
+)
 # -----------------------------
 # NEW SESSION
 # -----------------------------
