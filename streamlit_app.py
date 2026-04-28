@@ -1,8 +1,23 @@
 import streamlit as st
 import numpy as np
+import pandas as pd
+from scipy import stats
 import random
 
 st.set_page_config(layout="wide")
+
+# -------------------------
+# DATASET (REALISTIC)
+# -------------------------
+np.random.seed(42)
+
+n = 120
+df = pd.DataFrame({
+    "body_temp": np.random.normal(98.2, 0.7, n),
+    "heart_rate": np.random.normal(72, 10, n),
+    "age": np.random.randint(20, 60, n),
+    "region": np.random.choice(["North","South","East"], n)
+})
 
 # -------------------------
 # MODULES
@@ -27,154 +42,147 @@ if "correct" not in st.session_state:
     st.session_state.correct = False
 
 # -------------------------
-# HYPOTHESIS ENGINE (YOUR PEDAGOGY)
-# -------------------------
-def hypothesis_engine(difficulty):
-
-    scenario = random.choice(["one_sample", "two_sample"])
-
-    # -------------------
-    # ONE SAMPLE
-    # -------------------
-    if scenario == "one_sample":
-
-        qtype = random.choice([
-            "test_choice",
-            "normality",
-            "interpretation"
-        ])
-
-        if qtype == "test_choice":
-            return {
-                "q": "You have a sample of body temperature and want to check if it is significantly higher than 98. Which test should you use?",
-                "type": "mcq",
-                "options": ["One sample t-test", "Independent t-test", "ANOVA"],
-                "answer": "One sample t-test",
-                "explanation": "One sample compared to a fixed value → One sample t-test"
-            }
-
-        if qtype == "normality":
-            return {
-                "q": "Shapiro-Wilk p-value = 0.23. What does this indicate?",
-                "type": "mcq",
-                "options": ["Data is normal", "Data is not normal"],
-                "answer": "Data is normal",
-                "explanation": "p > 0.05 ⇒ data is approximately normal"
-            }
-
-        if qtype == "interpretation":
-            return {
-                "q": "The p-value of a one sample t-test is 0.03. What is your conclusion?",
-                "type": "mcq",
-                "options": ["Reject null hypothesis", "Do not reject null"],
-                "answer": "Reject null hypothesis",
-                "explanation": "p < 0.05 ⇒ statistically significant ⇒ reject null"
-            }
-
-    # -------------------
-    # TWO SAMPLE
-    # -------------------
-    else:
-
-        qtype = random.choice([
-            "test_identification",
-            "normality_fail",
-            "variance_case",
-            "full_decision"
-        ])
-
-        if qtype == "test_identification":
-            return {
-                "q": "You compare body temperature of people with heart rate > 75 vs ≤ 75. Which test is appropriate?",
-                "type": "mcq",
-                "options": ["Independent t-test", "One sample test", "Chi-square"],
-                "answer": "Independent t-test",
-                "explanation": "Two independent groups → Independent samples test"
-            }
-
-        if qtype == "normality_fail":
-            return {
-                "q": "Shapiro-Wilk p-value = 0.01. Which test should you use?",
-                "type": "mcq",
-                "options": ["Student t-test", "Mann-Whitney"],
-                "answer": "Mann-Whitney",
-                "explanation": "p < 0.05 ⇒ non-normal ⇒ use non-parametric test"
-            }
-
-        if qtype == "variance_case":
-            return {
-                "q": "Data is normal but Levene test p-value = 0.02. Which test is appropriate?",
-                "type": "mcq",
-                "options": ["Student t-test", "Welch t-test"],
-                "answer": "Welch t-test",
-                "explanation": "Unequal variances ⇒ Welch test"
-            }
-
-        if qtype == "full_decision":
-            return {
-                "q": "Data is normal and Levene p-value = 0.40. Which test should be used?",
-                "type": "mcq",
-                "options": ["Student t-test", "Welch t-test"],
-                "answer": "Student t-test",
-                "explanation": "Normal + equal variance ⇒ Student t-test"
-            }
-
-# -------------------------
-# DESCRIPTIVE ENGINE (SIMPLE FOR NOW)
+# DESCRIPTIVE ENGINE (NUMERIC)
 # -------------------------
 def descriptive_engine():
 
-    qtype = random.choice(["variability", "skew"])
+    var = random.choice(["body_temp","heart_rate"])
 
-    if qtype == "variability":
+    # FILTER BASED
+    region = random.choice(df["region"].unique())
+    subset = df[df["region"] == region]
+
+    qtype = random.choice(["mean_prob","observed_prob"])
+
+    if qtype == "mean_prob":
+
+        mu = subset[var].mean()
+        sd = subset[var].std()
+
         return {
-            "q": "Which measure is used to compare variability?",
-            "type": "mcq",
-            "options": ["Mean", "Standard deviation", "Median"],
-            "answer": "Standard deviation",
-            "explanation": "Standard deviation measures dispersion"
+            "q": f"""
+Filter dataset where region = {region}.
+
+1. Compute mean and SD of {var}
+2. Assuming normal distribution, compute:
+
+P({var} < mean)
+""",
+            "type":"numeric",
+            "answer":0.5,
+            "explanation":"For ANY normal distribution, P(X < mean) = 0.5"
         }
 
     else:
+        x = subset[var].mean()
+
+        observed = (subset[var] < x).mean()
+
         return {
-            "q": "If skewness is positive, what does it indicate?",
-            "type": "mcq",
-            "options": ["Left skew", "Right skew"],
-            "answer": "Right skew",
-            "explanation": "Positive skew ⇒ right tail"
+            "q": f"""
+Filter dataset where region = {region}.
+
+Compute observed probability:
+
+P({var} < mean)
+
+Use actual data (not normal assumption)
+""",
+            "type":"numeric",
+            "answer": round(observed,2),
+            "explanation":"Count proportion of observations below mean"
         }
 
 # -------------------------
-# ANOVA ENGINE
+# HYPOTHESIS ENGINE (NUMERIC)
+# -------------------------
+def hypothesis_engine():
+
+    scenario = random.choice(["one_sample","two_sample"])
+
+    # -------------------
+    # ONE SAMPLE TEST
+    # -------------------
+    if scenario == "one_sample":
+
+        sample = df["body_temp"]
+
+        t_stat, p_val = stats.ttest_1samp(sample, 98)
+
+        return {
+            "q": """
+You have body temperature data.
+
+Test whether mean body temperature is significantly different from 98.
+
+Enter the p-value (approx)
+""",
+            "type":"numeric",
+            "answer": round(p_val,3),
+            "explanation":"""
+Use one-sample t-test:
+H0: mean = 98
+
+Compute t-stat and p-value using sample mean and SD
+"""
+        }
+
+    # -------------------
+    # TWO SAMPLE TEST
+    # -------------------
+    else:
+
+        group1 = df[df["heart_rate"] > 75]["body_temp"]
+        group2 = df[df["heart_rate"] <= 75]["body_temp"]
+
+        t_stat, p_val = stats.ttest_ind(group1, group2)
+
+        return {
+            "q": """
+Split dataset:
+
+Group 1: heart_rate > 75  
+Group 2: heart_rate ≤ 75  
+
+Test if body temperature differs between groups.
+
+Enter p-value (approx)
+""",
+            "type":"numeric",
+            "answer": round(p_val,3),
+            "explanation":"""
+Independent t-test:
+
+Compare means of two groups
+
+p < 0.05 ⇒ significant difference
+"""
+        }
+
+# -------------------------
+# ANOVA ENGINE (NUMERIC)
 # -------------------------
 def anova_engine():
 
-    qtype = random.choice(["selection", "variance", "posthoc"])
+    groups = [
+        df[df["region"] == "North"]["body_temp"],
+        df[df["region"] == "South"]["body_temp"],
+        df[df["region"] == "East"]["body_temp"]
+    ]
 
-    if qtype == "selection":
-        return {
-            "q": "Data is non-normal across 3 groups. Which test should you use?",
-            "type": "mcq",
-            "options": ["ANOVA", "Kruskal-Wallis"],
-            "answer": "Kruskal-Wallis",
-            "explanation": "Non-normal ⇒ non-parametric ANOVA"
-        }
-
-    if qtype == "variance":
-        return {
-            "q": "Data is normal but variances are unequal. Which ANOVA variant?",
-            "type": "mcq",
-            "options": ["Fisher ANOVA", "Welch ANOVA"],
-            "answer": "Welch ANOVA",
-            "explanation": "Unequal variance ⇒ Welch ANOVA"
-        }
+    f_stat, p_val = stats.f_oneway(*groups)
 
     return {
-        "q": "Post-hoc test for unequal variance?",
-        "type": "mcq",
-        "options": ["Tukey", "Games-Howell"],
-        "answer": "Games-Howell",
-        "explanation": "Used when variances are unequal"
+        "q": """
+Compare body temperature across regions (North, South, East).
+
+Perform ANOVA.
+
+Enter p-value (approx)
+""",
+        "type":"numeric",
+        "answer": round(p_val,3),
+        "explanation":"ANOVA compares means across multiple groups"
     }
 
 # -------------------------
@@ -182,38 +190,23 @@ def anova_engine():
 # -------------------------
 def regression_engine():
 
-    qtype = random.choice(["hetero", "vif", "dw"])
-
-    if qtype == "hetero":
-        return {
-            "q": "Which test detects heteroskedasticity?",
-            "type": "mcq",
-            "options": ["Durbin Watson", "Breusch Pagan", "VIF"],
-            "answer": "Breusch Pagan",
-            "explanation": "Breusch-Pagan checks variance of residuals"
-        }
-
-    if qtype == "vif":
-        return {
-            "q": "High VIF indicates:",
-            "type": "mcq",
-            "options": ["Normality", "Multicollinearity"],
-            "answer": "Multicollinearity",
-            "explanation": "High VIF ⇒ predictors are correlated"
-        }
+    corr = df["body_temp"].corr(df["heart_rate"])
 
     return {
-        "q": "Durbin Watson test checks:",
-        "type": "mcq",
-        "options": ["Autocorrelation", "Variance"],
-        "answer": "Autocorrelation",
-        "explanation": "Durbin Watson detects serial correlation"
+        "q": """
+Compute correlation between body temperature and heart rate.
+
+Enter value (approx)
+""",
+        "type":"numeric",
+        "answer": round(corr,2),
+        "explanation":"Correlation measures linear relationship"
     }
 
 # -------------------------
-# QUESTION ROUTER
+# ROUTER
 # -------------------------
-def get_question(difficulty):
+def get_question():
 
     module = modules[st.session_state.module]
 
@@ -221,7 +214,7 @@ def get_question(difficulty):
         return descriptive_engine()
 
     elif module == "Hypothesis Testing":
-        return hypothesis_engine(difficulty)
+        return hypothesis_engine()
 
     elif module == "ANOVA":
         return anova_engine()
@@ -234,45 +227,52 @@ def get_question(difficulty):
 # -------------------------
 st.title("📊 Business Analytics Learning System")
 
-difficulty = st.selectbox("Select Difficulty", ["Easy", "Medium", "Hard"])
-
 st.subheader(f"Module: {modules[st.session_state.module]}")
 
 # Generate question
 if st.session_state.question is None or st.session_state.correct:
-    st.session_state.question = get_question(difficulty)
+    st.session_state.question = get_question()
     st.session_state.correct = False
 
 q = st.session_state.question
 
 st.write(q["q"])
 
-user_ans = st.radio("Select answer:", q["options"])
+# Input
+if q["type"] == "numeric":
+    user_ans = st.number_input("Enter Answer", value=0.0)
+else:
+    user_ans = st.radio("Select", q["options"])
 
 # -------------------------
 # EVALUATION
 # -------------------------
 if st.button("Submit"):
 
-    if user_ans == q["answer"]:
-        st.success("✅ Correct!")
+    if q["type"] == "numeric":
+        correct = abs(user_ans - q["answer"]) < 0.05
+    else:
+        correct = user_ans == q["answer"]
+
+    if correct:
+        st.success("✅ Correct")
 
         st.session_state.correct = True
         st.session_state.question = None
 
-        # Move module after few correct answers
+        # progress
         if random.random() > 0.6:
             st.session_state.module += 1
 
             if st.session_state.module >= len(modules):
-                st.success("🎓 You completed all modules!")
+                st.success("🎓 All modules completed!")
                 st.stop()
 
     else:
         st.error("❌ Incorrect")
 
-        st.write("### Explanation:")
+        st.write("### Explanation")
         st.write(q["explanation"])
 
-        # Repeat similar concept
+        # repeat similar concept
         st.session_state.correct = False
