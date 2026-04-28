@@ -240,11 +240,12 @@ if st.button("Submit"):
         correct = user_ans == q["answer"]
 
     if correct:
-        st.success("✅ Correct")
+    st.success("✅ Correct")
 
-        st.session_state.correct = True
-        st.session_state.question = None
+    st.session_state.question = None
+    st.session_state.correct = True
 
+    st.rerun()
         # progress randomly
         if random.random() > 0.6:
             st.session_state.module += 1
