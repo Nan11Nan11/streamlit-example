@@ -6,26 +6,29 @@ from scipy import stats
 st.set_page_config(page_title="Business Analytics Learning System")
 
 # -----------------------------
-# DATA GENERATION
+# SESSION INIT
 # -----------------------------
-np.random.seed(42)
-n = 200
+if "df" not in st.session_state:
 
-df = pd.DataFrame({
-    "body_temp": np.random.normal(98.6, 1.2, n),
-    "heart_rate": np.random.normal(72, 10, n),
-    "oxygen": np.random.normal(96, 2, n),
-    "age": np.random.randint(20, 70, n),
-    "bp": np.random.normal(120, 15, n),
-    "region": np.random.choice(["East", "West", "North"], n),
-    "gender": np.random.choice(["Male", "Female"], n)
-})
+    np.random.seed()
 
-# -----------------------------
-# SESSION STATE
-# -----------------------------
-if "question" not in st.session_state:
-    st.session_state.question = None
+    n = 120
+
+    heart_rate = np.random.normal(72, 8, n).round()
+    body_temp = 98 + (heart_rate - 72)*0.05 + np.random.normal(0, 0.5, n)
+    gender = np.random.choice(["Male", "Female"], n)
+
+    df = pd.DataFrame({
+        "HeartRate": heart_rate,
+        "BodyTemp": body_temp,
+        "Gender": gender
+    })
+
+    df["HT_GT_75"] = (df["HeartRate"] > 75).astype(int)
+
+    st.session_state.df = df
+
+df = st.session_state.df
 
 # -----------------------------
 # UI
@@ -33,142 +36,155 @@ if "question" not in st.session_state:
 st.title("📊 Business Analytics Learning System")
 
 name = st.text_input("Student Name")
-difficulty = st.selectbox("Select Difficulty", ["Easy", "Medium", "Hard"])
+difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
 
 # -----------------------------
-# QUESTION GENERATOR
+# QUESTION ENGINE
 # -----------------------------
-def generate_hypothesis_question():
+def generate_question():
 
-    var = "body_temp"
-    group_var = "heart_rate"
+    qtype = np.random.choice(["concept", "numeric"])
 
-    df["group"] = np.where(df[group_var] > 75, "High", "Low")
+    # ---------------- EASY ----------------
+    if difficulty == "Easy":
 
-    g1 = df[df["group"] == "High"][var]
-    g2 = df[df["group"] == "Low"][var]
+        q = "Which variable is numeric?"
 
-    # STEP 1: NORMALITY
-    p1 = stats.shapiro(g1)[1]
-    p2 = stats.shapiro(g2)[1]
+        options = ["HeartRate", "Gender"]
 
-    normal = (p1 > 0.05) and (p2 > 0.05)
+        return {
+            "type": "mcq",
+            "q": q,
+            "options": options,
+            "answer": "HeartRate",
+            "explanation": "HeartRate is numeric. Gender is categorical."
+        }
 
-    # STEP 2: VARIANCE TEST
-    levene_p = stats.levene(g1, g2)[1]
-    equal_var = levene_p > 0.05
+    # ---------------- MEDIUM ----------------
+    elif difficulty == "Medium":
 
-    # STEP 3: SELECT TEST
-    if not normal:
-        test_used = "Mann-Whitney U"
-        stat, pval = stats.mannwhitneyu(g1, g2)
+        var = np.random.choice(["HeartRate", "BodyTemp"])
+        sd = df[var].std()
+
+        return {
+            "type": "numeric",
+            "q": f"Compute standard deviation of {var} (approx)",
+            "answer": sd,
+            "explanation": f"Standard deviation of {var} = {round(sd,2)}"
+        }
+
+    # ---------------- HARD ----------------
     else:
-        if equal_var:
-            test_used = "Independent t-test"
-            stat, pval = stats.ttest_ind(g1, g2, equal_var=True)
-        else:
-            test_used = "Welch t-test"
-            stat, pval = stats.ttest_ind(g1, g2, equal_var=False)
 
-    question_text = f"""
+        g1 = df[df["HT_GT_75"] == 1]["BodyTemp"]
+        g2 = df[df["HT_GT_75"] == 0]["BodyTemp"]
+
+        # Normality
+        p1 = stats.shapiro(g1)[1]
+        p2 = stats.shapiro(g2)[1]
+        normal = (p1 > 0.05) and (p2 > 0.05)
+
+        # Variance
+        lev_p = stats.levene(g1, g2)[1]
+        equal_var = lev_p > 0.05
+
+        # Test selection
+        if not normal:
+            test = "Mann-Whitney U"
+            stat, pval = stats.mannwhitneyu(g1, g2)
+        else:
+            if equal_var:
+                test = "Student t-test"
+                stat, pval = stats.ttest_ind(g1, g2, equal_var=True)
+            else:
+                test = "Welch t-test"
+                stat, pval = stats.ttest_ind(g1, g2, equal_var=False)
+
+        return {
+            "type": "numeric",
+            "q": """
 Split data:
 
-- Group 1: heart_rate > 75  
-- Group 2: heart_rate ≤ 75  
+Group 1: HeartRate > 75  
+Group 2: HeartRate ≤ 75  
 
-Test whether **body temperature differs between groups**
+Test whether BodyTemp differs.
 
 👉 Enter approximate p-value
+""",
+            "answer": pval,
+            "explanation": f"""
+Normality p-values: {round(p1,3)}, {round(p2,3)}  
+Levene p-value: {round(lev_p,3)}  
+
+Selected Test: {test}  
+
+Final p-value: {round(pval,5)}
 """
-
-    explanation = f"""
-### Step 1: Check normality
-- p1 = {round(p1,3)}, p2 = {round(p2,3)}
-
-### Step 2: Variance test
-- Levene p = {round(levene_p,3)}
-
-### Step 3: Decision
-- Normal: {normal}
-- Equal variance: {equal_var}
-
-### Final Test Used:
-👉 {test_used}
-
-### Final p-value:
-👉 {round(pval,4)}
-"""
-
-    return {
-        "q": question_text,
-        "answer": pval,
-        "explanation": explanation
-    }
+        }
 
 # -----------------------------
-# GENERATE QUESTION
+# SESSION QUESTION
 # -----------------------------
-if st.session_state.question is None:
-    st.session_state.question = generate_hypothesis_question()
+if "question" not in st.session_state:
+    st.session_state.question = generate_question()
 
 q = st.session_state.question
 
 # -----------------------------
-# DISPLAY QUESTION
+# DISPLAY
 # -----------------------------
-st.subheader("Module: Hypothesis Testing")
+st.subheader("Current Module")
+
 st.write(q["q"])
 
-ans = st.number_input("Enter Answer", step=0.01)
+# -----------------------------
+# INPUT
+# -----------------------------
+if q["type"] == "mcq":
+
+    ans = st.radio("Select answer", q["options"])
+
+elif q["type"] == "numeric":
+
+    ans = st.number_input("Enter answer", step=0.01)
 
 # -----------------------------
-# SUBMIT BUTTON
+# SUBMIT
 # -----------------------------
 if st.button("Submit"):
 
-    correct_val = q["answer"]
+    correct = q["answer"]
 
-    if abs(ans - correct_val) < 0.02:
-        st.success("✅ Correct")
+    # -------- MCQ --------
+    if q["type"] == "mcq":
 
-        st.session_state.question = None
-        st.rerun()
+        if ans == correct:
+            st.success("✅ Correct")
+            st.session_state.question = generate_question()
+            st.rerun()
+        else:
+            st.error("❌ Incorrect")
+            st.write(q["explanation"])
 
+    # -------- NUMERIC --------
     else:
-        st.error("❌ Incorrect")
 
-        st.write("### 🔍 What went wrong")
+        if abs(ans - correct) < 0.05 or (correct < 0.01 and ans < 0.01):
+            st.success("✅ Correct")
+            st.session_state.question = generate_question()
+            st.rerun()
 
-        st.write(f"""
-**Your Answer:** {ans}  
-**Expected (approx):** {round(correct_val, 3)}
+        else:
+            st.error("❌ Incorrect")
+
+            st.write(f"""
+### 🔍 What went wrong
+
+Your Answer: {ans}  
+Correct (approx): {round(correct,5)}
 
 ---
 
-### 📘 Concept Explanation
 {q["explanation"]}
-
----
-
-### 🧠 Why your answer is incorrect:
-
-- You may have selected the wrong statistical test  
-- Or skipped normality / variance checks  
-- Or computed using incorrect subset  
-
----
-
-### ✅ What you should do:
-
-1. Check normality (Shapiro-Wilk)
-2. Check variance (Levene)
-3. Choose correct test:
-   - Non-normal → Mann-Whitney
-   - Normal + equal variance → t-test
-   - Normal + unequal variance → Welch
-4. Compute p-value again
-
----
-
-👉 Try again.
 """)
