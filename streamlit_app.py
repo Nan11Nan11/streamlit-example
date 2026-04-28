@@ -335,7 +335,7 @@ if st.session_state.answered:
     st.markdown("### 🔍 Explanation")
 
     st.write(q["explanation"])
-st.write(f"Your answer: {st.session_state.user_ans}")
+    st.write(f"Your answer: {st.session_state.user_ans}")
     # -----------------------------
     # NEXT QUESTION
     # -----------------------------
