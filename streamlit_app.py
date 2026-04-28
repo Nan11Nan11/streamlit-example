@@ -5,13 +5,10 @@ from scipy import stats
 
 st.set_page_config(page_title="Business Analytics Learning System")
 
-# -----------------------------
-# TITLE
-# -----------------------------
 st.title("📊 Business Analytics Learning System")
 
 # -----------------------------
-# SESSION STATE INIT
+# SESSION INIT
 # -----------------------------
 if "started" not in st.session_state:
     st.session_state.started = False
@@ -23,19 +20,18 @@ if "question" not in st.session_state:
     st.session_state.question = None
 
 # -----------------------------
-# STUDENT INPUT
+# INPUT
 # -----------------------------
 name = st.text_input("Student Name")
 difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
 
 # -----------------------------
-# START SESSION BUTTON
+# START SESSION
 # -----------------------------
 if not st.session_state.started:
 
     if st.button("▶️ Start Session"):
 
-        # ✅ Generate NEW dataset ONLY HERE
         np.random.seed(np.random.randint(0, 100000))
 
         n = 120
@@ -60,7 +56,7 @@ if not st.session_state.started:
     st.stop()
 
 # -----------------------------
-# RESET SESSION
+# RESET BUTTON
 # -----------------------------
 if st.sidebar.button("🔄 Start New Session"):
     for k in list(st.session_state.keys()):
@@ -75,11 +71,16 @@ df = st.session_state.df
 st.success("✅ Dataset generated for this session")
 
 # -----------------------------
+# SHOW DATASET (CRITICAL FIX)
+# -----------------------------
+with st.expander("📂 View Dataset (like Jamovi Data Tab)", expanded=True):
+    st.dataframe(df, use_container_width=True)
+
+# -----------------------------
 # QUESTION ENGINE
 # -----------------------------
 def generate_question():
 
-    # -------- EASY --------
     if difficulty == "Easy":
 
         return {
@@ -90,7 +91,6 @@ def generate_question():
             "explanation": "HeartRate is numeric. Gender is categorical."
         }
 
-    # -------- MEDIUM --------
     elif difficulty == "Medium":
 
         var = np.random.choice(["HeartRate", "BodyTemp"])
@@ -98,12 +98,11 @@ def generate_question():
 
         return {
             "type": "numeric",
-            "q": f"Compute standard deviation of {var} (approx)",
+            "q": f"Using the dataset above, compute SD of {var} (approx)",
             "answer": val,
-            "explanation": f"SD of {var} ≈ {round(val,2)}"
+            "explanation": f"SD ≈ {round(val,2)}"
         }
 
-    # -------- HARD --------
     else:
 
         g1 = df[df["HT_GT_75"] == 1]["BodyTemp"]
@@ -130,7 +129,7 @@ def generate_question():
         return {
             "type": "numeric",
             "q": """
-Split data:
+Using the dataset above:
 
 Group 1: HeartRate > 75  
 Group 2: HeartRate ≤ 75  
@@ -159,7 +158,7 @@ if st.session_state.question is None:
 q = st.session_state.question
 
 # -----------------------------
-# DISPLAY
+# DISPLAY QUESTION
 # -----------------------------
 st.subheader("Current Module")
 st.write(q["q"])
@@ -169,7 +168,6 @@ st.write(q["q"])
 # -----------------------------
 if q["type"] == "mcq":
     ans = st.radio("Select answer", q["options"])
-
 else:
     ans = st.number_input("Enter answer", step=0.01)
 
@@ -180,7 +178,6 @@ if st.button("Submit"):
 
     correct = q["answer"]
 
-    # MCQ
     if q["type"] == "mcq":
 
         if ans == correct:
@@ -191,7 +188,6 @@ if st.button("Submit"):
             st.error("❌ Incorrect")
             st.write(q["explanation"])
 
-    # NUMERIC
     else:
 
         tol = max(0.05, abs(correct)*0.1)
@@ -207,7 +203,7 @@ if st.button("Submit"):
 ### 🔍 What went wrong
 
 Your Answer: {ans}  
-Correct (approx): {round(correct,5)}
+Correct ≈ {round(correct,5)}
 
 ---
 
