@@ -1,183 +1,266 @@
 import streamlit as st
-import pandas as pd
 import numpy as np
 import random
-from scipy import stats
-from openai import OpenAI
 
-# -----------------------
-# OPENAI CLIENT
-# -----------------------
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+st.set_page_config(layout="wide")
 
-# -----------------------
-# DATASET GENERATION
-# -----------------------
-np.random.seed(42)
-n = 120
+# -------------------------
+# MODULES
+# -------------------------
+modules = [
+    "Descriptive Stats",
+    "Hypothesis Testing",
+    "ANOVA",
+    "Regression"
+]
 
-df = pd.DataFrame({
-    "Sales": np.random.normal(200, 50, n),
-    "Cost": np.random.normal(120, 30, n),
-    "Marketing": np.random.normal(60, 20, n),
-    "Satisfaction": np.random.normal(70, 10, n),
-    "Delivery_Time": np.random.normal(5, 1.5, n),
-    "Region": np.random.choice(["North", "South", "East"], n),
-    "Segment": np.random.choice(["Retail", "Corporate", "SME"], n),
-    "Channel": np.random.choice(["Online", "Offline"], n)
-})
-
-# -----------------------
-# MODULE FLOW
-# -----------------------
-modules = ["Descriptive Stats", "Hypothesis Testing", "ANOVA", "Regression"]
-
-# -----------------------
-# SESSION STATE INIT
-# -----------------------
+# -------------------------
+# SESSION STATE
+# -------------------------
 if "module" not in st.session_state:
     st.session_state.module = 0
 
 if "question" not in st.session_state:
     st.session_state.question = None
 
-if "answered_correct" not in st.session_state:
-    st.session_state.answered_correct = False
+if "correct" not in st.session_state:
+    st.session_state.correct = False
 
-# -----------------------
-# AI QUESTION GENERATOR
-# -----------------------
-def generate_ai_question(module, difficulty):
-    prompt = f"""
-    You are a statistics professor.
+# -------------------------
+# HYPOTHESIS ENGINE (YOUR PEDAGOGY)
+# -------------------------
+def hypothesis_engine(difficulty):
 
-    Generate a {difficulty} level question for {module}.
+    scenario = random.choice(["one_sample", "two_sample"])
 
-    RULES:
-    - Do NOT give answers in the question
-    - Use realistic business context
-    - Require interpretation or calculation
-    - Avoid trivial questions
-    - Provide:
-        1. question
-        2. numeric answer
-        3. detailed explanation
+    # -------------------
+    # ONE SAMPLE
+    # -------------------
+    if scenario == "one_sample":
 
-    Format:
-    QUESTION:
-    ...
-    ANSWER:
-    ...
-    EXPLANATION:
-    ...
-    """
+        qtype = random.choice([
+            "test_choice",
+            "normality",
+            "interpretation"
+        ])
 
-    response = client.chat.completions.create(
-        model="gpt-5-mini",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7
-    )
+        if qtype == "test_choice":
+            return {
+                "q": "You have a sample of body temperature and want to check if it is significantly higher than 98. Which test should you use?",
+                "type": "mcq",
+                "options": ["One sample t-test", "Independent t-test", "ANOVA"],
+                "answer": "One sample t-test",
+                "explanation": "One sample compared to a fixed value → One sample t-test"
+            }
 
-    text = response.choices[0].message.content
+        if qtype == "normality":
+            return {
+                "q": "Shapiro-Wilk p-value = 0.23. What does this indicate?",
+                "type": "mcq",
+                "options": ["Data is normal", "Data is not normal"],
+                "answer": "Data is normal",
+                "explanation": "p > 0.05 ⇒ data is approximately normal"
+            }
 
-    try:
-        q = text.split("QUESTION:")[1].split("ANSWER:")[0].strip()
-        ans = float(text.split("ANSWER:")[1].split("EXPLANATION:")[0].strip())
-        exp = text.split("EXPLANATION:")[1].strip()
-    except:
-        q, ans, exp = text, 0, "Parsing error"
+        if qtype == "interpretation":
+            return {
+                "q": "The p-value of a one sample t-test is 0.03. What is your conclusion?",
+                "type": "mcq",
+                "options": ["Reject null hypothesis", "Do not reject null"],
+                "answer": "Reject null hypothesis",
+                "explanation": "p < 0.05 ⇒ statistically significant ⇒ reject null"
+            }
 
-    return {"q": q, "answer": ans, "explanation": exp}
+    # -------------------
+    # TWO SAMPLE
+    # -------------------
+    else:
 
-# -----------------------
-# FALLBACK (NON-AI)
-# -----------------------
-def fallback_question(module, difficulty):
+        qtype = random.choice([
+            "test_identification",
+            "normality_fail",
+            "variance_case",
+            "full_decision"
+        ])
+
+        if qtype == "test_identification":
+            return {
+                "q": "You compare body temperature of people with heart rate > 75 vs ≤ 75. Which test is appropriate?",
+                "type": "mcq",
+                "options": ["Independent t-test", "One sample test", "Chi-square"],
+                "answer": "Independent t-test",
+                "explanation": "Two independent groups → Independent samples test"
+            }
+
+        if qtype == "normality_fail":
+            return {
+                "q": "Shapiro-Wilk p-value = 0.01. Which test should you use?",
+                "type": "mcq",
+                "options": ["Student t-test", "Mann-Whitney"],
+                "answer": "Mann-Whitney",
+                "explanation": "p < 0.05 ⇒ non-normal ⇒ use non-parametric test"
+            }
+
+        if qtype == "variance_case":
+            return {
+                "q": "Data is normal but Levene test p-value = 0.02. Which test is appropriate?",
+                "type": "mcq",
+                "options": ["Student t-test", "Welch t-test"],
+                "answer": "Welch t-test",
+                "explanation": "Unequal variances ⇒ Welch test"
+            }
+
+        if qtype == "full_decision":
+            return {
+                "q": "Data is normal and Levene p-value = 0.40. Which test should be used?",
+                "type": "mcq",
+                "options": ["Student t-test", "Welch t-test"],
+                "answer": "Student t-test",
+                "explanation": "Normal + equal variance ⇒ Student t-test"
+            }
+
+# -------------------------
+# DESCRIPTIVE ENGINE (SIMPLE FOR NOW)
+# -------------------------
+def descriptive_engine():
+
+    qtype = random.choice(["variability", "skew"])
+
+    if qtype == "variability":
+        return {
+            "q": "Which measure is used to compare variability?",
+            "type": "mcq",
+            "options": ["Mean", "Standard deviation", "Median"],
+            "answer": "Standard deviation",
+            "explanation": "Standard deviation measures dispersion"
+        }
+
+    else:
+        return {
+            "q": "If skewness is positive, what does it indicate?",
+            "type": "mcq",
+            "options": ["Left skew", "Right skew"],
+            "answer": "Right skew",
+            "explanation": "Positive skew ⇒ right tail"
+        }
+
+# -------------------------
+# ANOVA ENGINE
+# -------------------------
+def anova_engine():
+
+    qtype = random.choice(["selection", "variance", "posthoc"])
+
+    if qtype == "selection":
+        return {
+            "q": "Data is non-normal across 3 groups. Which test should you use?",
+            "type": "mcq",
+            "options": ["ANOVA", "Kruskal-Wallis"],
+            "answer": "Kruskal-Wallis",
+            "explanation": "Non-normal ⇒ non-parametric ANOVA"
+        }
+
+    if qtype == "variance":
+        return {
+            "q": "Data is normal but variances are unequal. Which ANOVA variant?",
+            "type": "mcq",
+            "options": ["Fisher ANOVA", "Welch ANOVA"],
+            "answer": "Welch ANOVA",
+            "explanation": "Unequal variance ⇒ Welch ANOVA"
+        }
+
+    return {
+        "q": "Post-hoc test for unequal variance?",
+        "type": "mcq",
+        "options": ["Tukey", "Games-Howell"],
+        "answer": "Games-Howell",
+        "explanation": "Used when variances are unequal"
+    }
+
+# -------------------------
+# REGRESSION ENGINE
+# -------------------------
+def regression_engine():
+
+    qtype = random.choice(["hetero", "vif", "dw"])
+
+    if qtype == "hetero":
+        return {
+            "q": "Which test detects heteroskedasticity?",
+            "type": "mcq",
+            "options": ["Durbin Watson", "Breusch Pagan", "VIF"],
+            "answer": "Breusch Pagan",
+            "explanation": "Breusch-Pagan checks variance of residuals"
+        }
+
+    if qtype == "vif":
+        return {
+            "q": "High VIF indicates:",
+            "type": "mcq",
+            "options": ["Normality", "Multicollinearity"],
+            "answer": "Multicollinearity",
+            "explanation": "High VIF ⇒ predictors are correlated"
+        }
+
+    return {
+        "q": "Durbin Watson test checks:",
+        "type": "mcq",
+        "options": ["Autocorrelation", "Variance"],
+        "answer": "Autocorrelation",
+        "explanation": "Durbin Watson detects serial correlation"
+    }
+
+# -------------------------
+# QUESTION ROUTER
+# -------------------------
+def get_question(difficulty):
+
+    module = modules[st.session_state.module]
 
     if module == "Descriptive Stats":
-        x = df["Sales"]
-        y = df["Cost"]
+        return descriptive_engine()
 
-        if difficulty == "Easy":
-            return {
-                "q": "Which variable has higher variability: Sales or Cost?",
-                "options": ["Sales", "Cost"],
-                "answer": "Sales",
-                "explanation": "Compare standard deviations."
-            }
+    elif module == "Hypothesis Testing":
+        return hypothesis_engine(difficulty)
 
-        elif difficulty == "Medium":
-            subset = df[df["Region"] == "East"]["Sales"]
-            mean = subset.mean()
-            sd = subset.std()
-            val = mean - sd
+    elif module == "ANOVA":
+        return anova_engine()
 
-            prob = stats.norm.cdf(val, mean, sd)
+    else:
+        return regression_engine()
 
-            return {
-                "q": f"For Region = East, compute P(Sales < {round(val,2)}).",
-                "answer": round(prob, 2),
-                "explanation": "Compute mean & SD, then use normal CDF."
-            }
-
-        else:
-            return {
-                "q": "Compare skewness of Sales and Marketing and interpret.",
-                "answer": 0,
-                "explanation": "Higher skew means asymmetry."
-            }
-
-    return generate_ai_question(module, difficulty)
-
-# -----------------------
+# -------------------------
 # UI
-# -----------------------
+# -------------------------
 st.title("📊 Business Analytics Learning System")
 
-name = st.text_input("Student Name")
 difficulty = st.selectbox("Select Difficulty", ["Easy", "Medium", "Hard"])
 
-current_module = modules[st.session_state.module]
-st.subheader(f"Current Module: {current_module}")
+st.subheader(f"Module: {modules[st.session_state.module]}")
 
-# -----------------------
-# GENERATE QUESTION
-# -----------------------
-if st.session_state.question is None or st.session_state.answered_correct:
-    try:
-        q = generate_ai_question(current_module, difficulty)
-    except:
-        q = fallback_question(current_module, difficulty)
+# Generate question
+if st.session_state.question is None or st.session_state.correct:
+    st.session_state.question = get_question(difficulty)
+    st.session_state.correct = False
 
-    st.session_state.question = q
-    st.session_state.answered_correct = False
-
-# -----------------------
-# DISPLAY QUESTION
-# -----------------------
 q = st.session_state.question
+
 st.write(q["q"])
 
-# -----------------------
-# ANSWER INPUT
-# -----------------------
-user_ans = st.number_input("Your Answer", value=0.0)
+user_ans = st.radio("Select answer:", q["options"])
 
+# -------------------------
+# EVALUATION
+# -------------------------
 if st.button("Submit"):
 
-    correct = False
-
-    try:
-        correct = abs(user_ans - float(q["answer"])) < 0.1
-    except:
-        correct = False
-
-    if correct:
+    if user_ans == q["answer"]:
         st.success("✅ Correct!")
 
-        st.session_state.answered_correct = True
+        st.session_state.correct = True
+        st.session_state.question = None
 
-        # move module forward if needed
+        # Move module after few correct answers
         if random.random() > 0.6:
             st.session_state.module += 1
 
@@ -188,8 +271,8 @@ if st.button("Submit"):
     else:
         st.error("❌ Incorrect")
 
-        st.write("### Detailed Explanation:")
+        st.write("### Explanation:")
         st.write(q["explanation"])
 
-        # keep same question (adaptive loop)
-        st.session_state.answered_correct = False
+        # Repeat similar concept
+        st.session_state.correct = False
