@@ -333,17 +333,17 @@ if st.session_state.answered:
     if st.button("Next Question"):
 
     # 👉 PROGRESSION LOGIC (ADD THIS)
-    if st.session_state.correct:
-        st.session_state.question_step += 1
-
-        # move to next module after 2 correct answers
-        if st.session_state.question_step >= 2:
-            st.session_state.module_index += 1
-            st.session_state.question_step = 0
-
-            if st.session_state.module_index >= len(modules):
-                st.success("🎓 All modules completed!")
-                st.stop()
+        if st.session_state.correct:
+            st.session_state.question_step += 1
+    
+            # move to next module after 2 correct answers
+            if st.session_state.question_step >= 2:
+                st.session_state.module_index += 1
+                st.session_state.question_step = 0
+    
+                if st.session_state.module_index >= len(modules):
+                    st.success("🎓 All modules completed!")
+                    st.stop()
 
         st.session_state.question = generate_question(st.session_state.df)
         st.session_state.answered = False
