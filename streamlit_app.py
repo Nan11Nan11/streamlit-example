@@ -5,12 +5,20 @@ from scipy import stats
 
 st.set_page_config(page_title="Business Analytics Learning System")
 
-# -----------------------------
-# SESSION INIT
-# -----------------------------
+# -------------------------------
+# RESET SESSION BUTTON
+# -------------------------------
+if st.sidebar.button("🔄 Start New Session"):
+    for k in list(st.session_state.keys()):
+        del st.session_state[k]
+    st.rerun()
+
+# -------------------------------
+# DATA GENERATION (ONCE PER SESSION)
+# -------------------------------
 if "df" not in st.session_state:
 
-    np.random.seed()
+    np.random.seed(np.random.randint(0, 100000))
 
     n = 120
 
@@ -30,32 +38,26 @@ if "df" not in st.session_state:
 
 df = st.session_state.df
 
-# -----------------------------
+# -------------------------------
 # UI
-# -----------------------------
+# -------------------------------
 st.title("📊 Business Analytics Learning System")
 
 name = st.text_input("Student Name")
 difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
 
-# -----------------------------
+# -------------------------------
 # QUESTION ENGINE
-# -----------------------------
+# -------------------------------
 def generate_question():
-
-    qtype = np.random.choice(["concept", "numeric"])
 
     # ---------------- EASY ----------------
     if difficulty == "Easy":
 
-        q = "Which variable is numeric?"
-
-        options = ["HeartRate", "Gender"]
-
         return {
             "type": "mcq",
-            "q": q,
-            "options": options,
+            "q": "Which variable is numeric?",
+            "options": ["HeartRate", "Gender"],
             "answer": "HeartRate",
             "explanation": "HeartRate is numeric. Gender is categorical."
         }
@@ -64,13 +66,13 @@ def generate_question():
     elif difficulty == "Medium":
 
         var = np.random.choice(["HeartRate", "BodyTemp"])
-        sd = df[var].std()
+        true_val = df[var].std()
 
         return {
             "type": "numeric",
             "q": f"Compute standard deviation of {var} (approx)",
-            "answer": sd,
-            "explanation": f"Standard deviation of {var} = {round(sd,2)}"
+            "answer": true_val,
+            "explanation": f"SD of {var} = {round(true_val,2)}"
         }
 
     # ---------------- HARD ----------------
@@ -79,25 +81,25 @@ def generate_question():
         g1 = df[df["HT_GT_75"] == 1]["BodyTemp"]
         g2 = df[df["HT_GT_75"] == 0]["BodyTemp"]
 
-        # Normality
+        # Step 1: Normality
         p1 = stats.shapiro(g1)[1]
         p2 = stats.shapiro(g2)[1]
         normal = (p1 > 0.05) and (p2 > 0.05)
 
-        # Variance
+        # Step 2: Variance test
         lev_p = stats.levene(g1, g2)[1]
         equal_var = lev_p > 0.05
 
-        # Test selection
+        # Step 3: Choose test
         if not normal:
-            test = "Mann-Whitney U"
+            test_name = "Mann-Whitney U"
             stat, pval = stats.mannwhitneyu(g1, g2)
         else:
             if equal_var:
-                test = "Student t-test"
+                test_name = "Student t-test"
                 stat, pval = stats.ttest_ind(g1, g2, equal_var=True)
             else:
-                test = "Welch t-test"
+                test_name = "Welch t-test"
                 stat, pval = stats.ttest_ind(g1, g2, equal_var=False)
 
         return {
@@ -114,52 +116,53 @@ Test whether BodyTemp differs.
 """,
             "answer": pval,
             "explanation": f"""
-Normality p-values: {round(p1,3)}, {round(p2,3)}  
-Levene p-value: {round(lev_p,3)}  
+Step 1: Normality  
+p-values = {round(p1,3)}, {round(p2,3)}
 
-Selected Test: {test}  
+Step 2: Variance (Levene)  
+p = {round(lev_p,3)}
 
-Final p-value: {round(pval,5)}
+Step 3: Test selected  
+👉 {test_name}
+
+Final p-value ≈ {round(pval,5)}
 """
         }
 
-# -----------------------------
-# SESSION QUESTION
-# -----------------------------
+# -------------------------------
+# STORE QUESTION
+# -------------------------------
 if "question" not in st.session_state:
     st.session_state.question = generate_question()
 
 q = st.session_state.question
 
-# -----------------------------
-# DISPLAY
-# -----------------------------
+# -------------------------------
+# DISPLAY QUESTION
+# -------------------------------
 st.subheader("Current Module")
-
 st.write(q["q"])
 
-# -----------------------------
+# -------------------------------
 # INPUT
-# -----------------------------
+# -------------------------------
 if q["type"] == "mcq":
-
-    ans = st.radio("Select answer", q["options"])
+    user_ans = st.radio("Select answer", q["options"])
 
 elif q["type"] == "numeric":
+    user_ans = st.number_input("Enter answer", step=0.01)
 
-    ans = st.number_input("Enter answer", step=0.01)
-
-# -----------------------------
-# SUBMIT
-# -----------------------------
+# -------------------------------
+# SUBMIT BUTTON
+# -------------------------------
 if st.button("Submit"):
 
     correct = q["answer"]
 
-    # -------- MCQ --------
+    # ---------- MCQ ----------
     if q["type"] == "mcq":
 
-        if ans == correct:
+        if user_ans == correct:
             st.success("✅ Correct")
             st.session_state.question = generate_question()
             st.rerun()
@@ -167,10 +170,12 @@ if st.button("Submit"):
             st.error("❌ Incorrect")
             st.write(q["explanation"])
 
-    # -------- NUMERIC --------
+    # ---------- NUMERIC ----------
     else:
 
-        if abs(ans - correct) < 0.05 or (correct < 0.01 and ans < 0.01):
+        tolerance = max(0.05, abs(correct)*0.1)
+
+        if abs(user_ans - correct) <= tolerance:
             st.success("✅ Correct")
             st.session_state.question = generate_question()
             st.rerun()
@@ -181,8 +186,8 @@ if st.button("Submit"):
             st.write(f"""
 ### 🔍 What went wrong
 
-Your Answer: {ans}  
-Correct (approx): {round(correct,5)}
+Your Answer: {user_ans}  
+Correct Answer (approx): {round(correct,5)}
 
 ---
 
