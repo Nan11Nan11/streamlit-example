@@ -3,209 +3,174 @@ import pandas as pd
 import numpy as np
 from scipy import stats
 
-st.set_page_config(page_title="Business Analytics Learning System")
-
-st.title("📊 Business Analytics Learning System")
+st.set_page_config(page_title="Business Analytics Learning System", layout="wide")
 
 # -----------------------------
 # SESSION INIT
 # -----------------------------
-if "started" not in st.session_state:
-    st.session_state.started = False
-
 if "df" not in st.session_state:
     st.session_state.df = None
-
 if "question" not in st.session_state:
     st.session_state.question = None
+if "answered" not in st.session_state:
+    st.session_state.answered = False
+if "correct" not in st.session_state:
+    st.session_state.correct = None
 
 # -----------------------------
-# INPUT
+# DATASET GENERATOR
 # -----------------------------
-name = st.text_input("Student Name")
-difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
+def generate_dataset():
+    np.random.seed()
+
+    n = 120
+
+    heart_rate = np.random.normal(72, 8, n)
+    gender = np.random.choice(["Male", "Female"], n)
+
+    # Create relationship: higher HR → slightly higher temp
+    body_temp = 97 + (heart_rate - 70)*0.03 + np.random.normal(0, 0.3, n)
+
+    df = pd.DataFrame({
+        "HeartRate": np.round(heart_rate, 0),
+        "BodyTemp": np.round(body_temp, 3),
+        "Gender": gender
+    })
+
+    return df
+
+# -----------------------------
+# QUESTION GENERATOR
+# -----------------------------
+def generate_question(df):
+
+    # Always recompute grouping from THIS dataset
+    g1 = df[df["HeartRate"] > 75]["BodyTemp"]
+    g2 = df[df["HeartRate"] <= 75]["BodyTemp"]
+
+    # Normality
+    p1 = stats.shapiro(g1)[1]
+    p2 = stats.shapiro(g2)[1]
+
+    # Variance
+    lev_p = stats.levene(g1, g2)[1]
+
+    # Decision logic (Jamovi style)
+    if p1 > 0.05 and p2 > 0.05:
+        if lev_p > 0.05:
+            test = "Student t-test"
+            stat, pval = stats.ttest_ind(g1, g2, equal_var=True)
+        else:
+            test = "Welch t-test"
+            stat, pval = stats.ttest_ind(g1, g2, equal_var=False)
+    else:
+        test = "Mann-Whitney U"
+        stat, pval = stats.mannwhitneyu(g1, g2)
+
+    return {
+        "question": "Split data:\n\nGroup 1: HeartRate > 75\nGroup 2: HeartRate ≤ 75\n\nTest if BodyTemp differs.\n\nEnter p-value (approx):",
+        "type": "numeric",
+        "answer": round(pval, 4),
+        "test": test,
+        "p1": p1,
+        "p2": p2,
+        "lev_p": lev_p
+    }
+
+# -----------------------------
+# HEADER
+# -----------------------------
+st.title("📊 Business Analytics Learning System")
+
+student = st.text_input("Student Name", "ABC123")
 
 # -----------------------------
 # START SESSION
 # -----------------------------
-if not st.session_state.started:
+if st.button("🚀 Start New Session"):
 
-    if st.button("▶️ Start Session"):
+    st.session_state.df = generate_dataset()
+    st.session_state.question = generate_question(st.session_state.df)
 
-        np.random.seed(np.random.randint(0, 100000))
+    st.session_state.answered = False
+    st.session_state.correct = None
 
-        n = 120
+    st.success("New dataset generated for this session")
 
-        heart_rate = np.random.normal(72, 8, n).round()
-        body_temp = 98 + (heart_rate - 72)*0.05 + np.random.normal(0, 0.5, n)
-        gender = np.random.choice(["Male", "Female"], n)
+# -----------------------------
+# SHOW DATASET
+# -----------------------------
+if st.session_state.df is not None:
 
-        df = pd.DataFrame({
-            "HeartRate": heart_rate,
-            "BodyTemp": body_temp,
-            "Gender": gender
-        })
+    st.subheader("Dataset (Use this for analysis)")
+    st.dataframe(st.session_state.df.head(15), use_container_width=True)
 
-        df["HT_GT_75"] = (df["HeartRate"] > 75).astype(int)
+# -----------------------------
+# QUESTION BLOCK
+# -----------------------------
+if st.session_state.question:
 
-        st.session_state.df = df
-        st.session_state.started = True
+    q = st.session_state.question
+
+    st.subheader("Current Question")
+    st.write(q["question"])
+
+    user_ans = st.number_input("Enter answer", value=0.0)
+
+    # -----------------------------
+    # SUBMIT
+    # -----------------------------
+    if st.button("Submit"):
+
+        tol = 0.02
+
+        st.session_state.correct = abs(user_ans - q["answer"]) <= tol
+        st.session_state.answered = True
 
         st.rerun()
 
-    st.stop()
-
 # -----------------------------
-# RESET BUTTON
+# RESULT
 # -----------------------------
-if st.sidebar.button("🔄 Start New Session"):
-    for k in list(st.session_state.keys()):
-        del st.session_state[k]
-    st.rerun()
+if st.session_state.answered:
 
-# -----------------------------
-# LOAD DATA
-# -----------------------------
-df = st.session_state.df
+    q = st.session_state.question
 
-st.success("✅ Dataset generated for this session")
-
-# -----------------------------
-# SHOW DATASET (CRITICAL FIX)
-# -----------------------------
-with st.expander("📂 View Dataset (like Jamovi Data Tab)", expanded=True):
-    st.dataframe(df, use_container_width=True)
-
-# -----------------------------
-# QUESTION ENGINE
-# -----------------------------
-def generate_question():
-
-    if difficulty == "Easy":
-
-        return {
-            "type": "mcq",
-            "q": "Which variable is numeric?",
-            "options": ["HeartRate", "Gender"],
-            "answer": "HeartRate",
-            "explanation": "HeartRate is numeric. Gender is categorical."
-        }
-
-    elif difficulty == "Medium":
-
-        var = np.random.choice(["HeartRate", "BodyTemp"])
-        val = df[var].std()
-
-        return {
-            "type": "numeric",
-            "q": f"Using the dataset above, compute SD of {var} (approx)",
-            "answer": val,
-            "explanation": f"SD ≈ {round(val,2)}"
-        }
-
+    if st.session_state.correct:
+        st.success("Correct ✅")
     else:
+        st.error("Incorrect ❌")
+        st.write(f"Your answer: {user_ans}")
+        st.write(f"Correct answer: {q['answer']}")
 
-        g1 = df[df["HT_GT_75"] == 1]["BodyTemp"]
-        g2 = df[df["HT_GT_75"] == 0]["BodyTemp"]
+    # -----------------------------
+    # EXPLANATION
+    # -----------------------------
+    st.markdown("### 🔍 Explanation")
 
-        p1 = stats.shapiro(g1)[1]
-        p2 = stats.shapiro(g2)[1]
-        normal = (p1 > 0.05) and (p2 > 0.05)
+    st.write(f"""
+Normality p-values:
+- Group 1: {round(q['p1'],4)}
+- Group 2: {round(q['p2'],4)}
 
-        lev_p = stats.levene(g1, g2)[1]
-        equal_var = lev_p > 0.05
+Levene test p-value: {round(q['lev_p'],4)}
 
-        if not normal:
-            test = "Mann-Whitney U"
-            _, pval = stats.mannwhitneyu(g1, g2)
-        else:
-            if equal_var:
-                test = "Student t-test"
-                _, pval = stats.ttest_ind(g1, g2, equal_var=True)
-            else:
-                test = "Welch t-test"
-                _, pval = stats.ttest_ind(g1, g2, equal_var=False)
+👉 Selected Test: {q['test']}
 
-        return {
-            "type": "numeric",
-            "q": """
-Using the dataset above:
+👉 Final p-value: {q['answer']}
 
-Group 1: HeartRate > 75  
-Group 2: HeartRate ≤ 75  
-
-Test if BodyTemp differs.
-
-👉 Enter approximate p-value
-""",
-            "answer": pval,
-            "explanation": f"""
-Normality p-values: {round(p1,3)}, {round(p2,3)}
-Levene p-value: {round(lev_p,3)}
-
-Selected Test: {test}
-
-Final p-value ≈ {round(pval,5)}
-"""
-        }
-
-# -----------------------------
-# LOAD QUESTION
-# -----------------------------
-if st.session_state.question is None:
-    st.session_state.question = generate_question()
-
-q = st.session_state.question
-
-# -----------------------------
-# DISPLAY QUESTION
-# -----------------------------
-st.subheader("Current Module")
-st.write(q["q"])
-
-# -----------------------------
-# INPUT
-# -----------------------------
-if q["type"] == "mcq":
-    ans = st.radio("Select answer", q["options"])
-else:
-    ans = st.number_input("Enter answer", step=0.01)
-
-# -----------------------------
-# SUBMIT
-# -----------------------------
-if st.button("Submit"):
-
-    correct = q["answer"]
-
-    if q["type"] == "mcq":
-
-        if ans == correct:
-            st.success("✅ Correct")
-            st.session_state.question = generate_question()
-            st.rerun()
-        else:
-            st.error("❌ Incorrect")
-            st.write(q["explanation"])
-
-    else:
-
-        tol = max(0.05, abs(correct)*0.1)
-
-        if abs(ans - correct) <= tol:
-            st.success("✅ Correct")
-            st.session_state.question = generate_question()
-            st.rerun()
-        else:
-            st.error("❌ Incorrect")
-
-            st.write(f"""
-### 🔍 What went wrong
-
-Your Answer: {ans}  
-Correct ≈ {round(correct,5)}
-
----
-
-{q["explanation"]}
+Interpretation:
+If p < 0.05 → significant difference  
+If p ≥ 0.05 → no significant difference
 """)
+
+    # -----------------------------
+    # NEXT QUESTION
+    # -----------------------------
+    if st.button("Next Question"):
+
+        st.session_state.question = generate_question(st.session_state.df)
+        st.session_state.answered = False
+        st.session_state.correct = None
+
+        st.rerun()
