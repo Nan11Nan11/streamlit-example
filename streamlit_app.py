@@ -3,6 +3,32 @@ import pandas as pd
 import numpy as np
 from scipy import stats
 
+from openai import OpenAI
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+def ai_explain(context):
+
+    prompt = f"""
+You are a statistics professor teaching undergraduate business students.
+
+Explain the following result in SIMPLE, intuitive terms:
+
+{context}
+
+Rules:
+- No jargon
+- Step-by-step
+- Explain like Jamovi interpretation
+- Include decision logic (reject/not reject)
+"""
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    return response.choices[0].message.content
+
 st.set_page_config(page_title="Business Analytics Learning System", layout="wide")
 
 # -----------------------------
@@ -56,6 +82,7 @@ def generate_descriptive_question(df):
     }
 
 def generate_hypothesis_question(df):
+
     g1 = df[df["HeartRate"] > 75]["BodyTemp"]
     g2 = df[df["HeartRate"] <= 75]["BodyTemp"]
 
@@ -66,19 +93,41 @@ def generate_hypothesis_question(df):
     if p1 > 0.05 and p2 > 0.05:
         if lev_p > 0.05:
             test = "Student t-test"
-            _, pval = stats.ttest_ind(g1, g2, equal_var=True)
+            stat, pval = stats.ttest_ind(g1, g2, equal_var=True)
         else:
             test = "Welch t-test"
-            _, pval = stats.ttest_ind(g1, g2, equal_var=False)
+            stat, pval = stats.ttest_ind(g1, g2, equal_var=False)
     else:
         test = "Mann-Whitney U"
-        _, pval = stats.mannwhitneyu(g1, g2)
+        stat, pval = stats.mannwhitneyu(g1, g2)
+
+    decision = "Reject H0" if pval < 0.05 else "Fail to reject H0"
 
     return {
-        "question": "Enter approximate p-value for difference in BodyTemp (HR>75 vs ≤75)",
-        "type": "numeric",
-        "answer": round(pval, 4),
-        "explanation": f"Test used: {test}, p-value ≈ {round(pval,4)}"
+        "question": """
+You ran an independent samples test in Jamovi.
+
+Group 1: HeartRate > 75  
+Group 2: HeartRate ≤ 75  
+
+👉 What is the correct conclusion?
+
+""",
+        "type": "mcq",
+        "options": [
+            "Reject H0: Body temperature differs",
+            "Fail to reject H0: No difference",
+            "Use regression instead",
+            "Cannot conclude"
+        ],
+        "answer": "Reject H0: Body temperature differs" if pval < 0.05 else "Fail to reject H0: No difference",
+        "context": f"""
+Test: {test}
+p-value: {round(pval,4)}
+Normality: {round(p1,3)}, {round(p2,3)}
+Levene: {round(lev_p,3)}
+Decision: {decision}
+"""
     }
 
 def generate_regression_question(df):
@@ -174,7 +223,12 @@ if st.session_state.question:
 # -----------------------------
 if st.session_state.answered:
     q = st.session_state.question
-
+    # -----------------------------
+    # SHOW JAMOVI-LIKE OUTPUT
+    # -----------------------------
+    if "context" in q:
+    st.markdown("### 📊 Jamovi Output (Simplified)")
+    st.code(q["context"])
     if st.session_state.correct:
         st.success("Correct ✅")
     else:
@@ -184,7 +238,14 @@ if st.session_state.answered:
     st.write(f"Correct answer: {q['answer']}")
 
     st.markdown("### 🔍 Explanation")
-    st.write(q["explanation"])
+
+    # Use AI explanation if context exists (hypothesis questions)
+    if "context" in q:
+        explanation = ai_explain(q["context"])
+    else:
+        explanation = q["explanation"]
+    
+    st.write(explanation)
 
     # -----------------------------
     # NEXT QUESTION + PROGRESSION
