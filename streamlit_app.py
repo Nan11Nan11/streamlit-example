@@ -227,8 +227,8 @@ if st.session_state.answered:
     # SHOW JAMOVI-LIKE OUTPUT
     # -----------------------------
     if "context" in q:
-    st.markdown("### 📊 Jamovi Output (Simplified)")
-    st.code(q["context"])
+        st.markdown("### 📊 Jamovi Output (Simplified)")
+        st.code(q["context"])
     if st.session_state.correct:
         st.success("Correct ✅")
     else:
