@@ -235,20 +235,38 @@ if st.session_state.answered:
 
     st.markdown("### 🔍 Explanation")
 
-    # 🔥 AI explanation for hypothesis
-    if "context" in q:
-        explanation = ai_explain(q["context"])
-    else:
-        explanation = q["explanation"]
-
-    st.write(explanation)
+    if "ai_explanation" not in st.session_state:
+        st.session_state.ai_explanation = None
+    
+    # Only generate ONCE
+    if st.session_state.ai_explanation is None:
+    
+        try:
+            if "context" in q:
+                st.session_state.ai_explanation = ai_explain(q["context"])
+            else:
+                st.session_state.ai_explanation = q["explanation"]
+    
+        except Exception:
+            st.session_state.ai_explanation = "⚠️ Explanation temporarily unavailable. Please retry."
+    
+    st.write(st.session_state.ai_explanation)
+        # 🔥 AI explanation for hypothesis
+        if "context" in q:
+            explanation = ai_explain(q["context"])
+        else:
+            explanation = q["explanation"]
+    
+        st.write(explanation)
 
     # -----------------------------
     # NEXT QUESTION
     # -----------------------------
     if st.button("Next Question"):
+
         st.session_state.question = generate_question()
         st.session_state.answered = False
         st.session_state.correct = None
-
+        st.session_state.ai_explanation = None   # 🔥 IMPORTANT RESET
+    
         st.rerun()
