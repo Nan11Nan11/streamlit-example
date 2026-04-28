@@ -42,7 +42,27 @@ def generate_dataset():
 # -----------------------------
 # QUESTION GENERATOR
 # -----------------------------
-def generate_question(df):
+# -----------------------------
+# DESCRIPTIVE STATS
+# -----------------------------
+def generate_descriptive_question(df):
+
+    col = np.random.choice(["HeartRate", "BodyTemp"])
+
+    mean_val = df[col].mean()
+
+    return {
+        "question": f"What is the approximate mean of {col}?",
+        "type": "numeric",
+        "answer": round(mean_val, 2),
+        "explanation": f"Mean of {col} = {round(mean_val,2)}"
+    }
+
+
+# -----------------------------
+# HYPOTHESIS TESTING
+# -----------------------------
+def generate_hypothesis_question(df):
 
     g1 = df[df["HeartRate"] > 75]["BodyTemp"]
     g2 = df[df["HeartRate"] <= 75]["BodyTemp"]
@@ -75,11 +95,50 @@ Test if BodyTemp differs.
 """,
         "type": "numeric",
         "answer": round(pval, 4),
-        "test": test,
-        "p1": p1,
-        "p2": p2,
-        "lev_p": lev_p
+        "explanation": f"""
+Test used: {test}
+
+Normality p-values:
+Group1: {round(p1,4)}, Group2: {round(p2,4)}
+
+Levene p-value: {round(lev_p,4)}
+
+Final p-value: {round(pval,4)}
+"""
     }
+
+
+# -----------------------------
+# REGRESSION
+# -----------------------------
+def generate_regression_question(df):
+
+    x = df["HeartRate"]
+    y = df["BodyTemp"]
+
+    slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+    return {
+        "question": "What is the approximate slope of regression: BodyTemp ~ HeartRate?",
+        "type": "numeric",
+        "answer": round(slope, 3),
+        "explanation": f"Slope = {round(slope,3)} (change in BodyTemp per unit HeartRate)"
+    }
+# -----------------------------
+# MASTER QUESTION ROUTER (ADD THIS)
+# -----------------------------
+def generate_question(df):
+
+    module = np.random.choice(["descriptive", "hypothesis", "regression"])
+
+    if module == "descriptive":
+        return generate_descriptive_question(df)
+
+    elif module == "hypothesis":
+        return generate_hypothesis_question(df)
+
+    else:
+        return generate_regression_question(df)
 
 # -----------------------------
 # HEADER
@@ -157,21 +216,7 @@ if st.session_state.answered:
     # -----------------------------
     st.markdown("### 🔍 Explanation")
 
-    st.write(f"""
-Normality p-values:
-- Group 1: {round(q['p1'],4)}
-- Group 2: {round(q['p2'],4)}
-
-Levene test p-value: {round(q['lev_p'],4)}
-
-👉 Selected Test: {q['test']}
-
-👉 Final p-value: {q['answer']}
-
-Interpretation:
-If p < 0.05 → significant difference  
-If p ≥ 0.05 → no significant difference
-""")
+    st.write(q["explanation"])
 
     # -----------------------------
     # NEXT QUESTION
