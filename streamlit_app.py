@@ -4,7 +4,11 @@ import numpy as np
 from scipy import stats
 
 st.set_page_config(page_title="Business Analytics Learning System", layout="wide")
-
+if "module_index" not in st.session_state:
+    st.session_state.module_index = 0
+modules = ["descriptive", "hypothesis", "regression"]
+if "question_step" not in st.session_state:
+    st.session_state.question_step = 0
 # -----------------------------
 # SESSION INIT
 # -----------------------------
@@ -129,16 +133,121 @@ def generate_regression_question(df):
 # -----------------------------
 def generate_question(df):
 
-    module = np.random.choice(["descriptive", "hypothesis", "regression"])
+    module = modules[st.session_state.module_index]
+    level = difficulty
 
+    # ---------------- DESCRIPTIVE ----------------
     if module == "descriptive":
-        return generate_descriptive_question(df)
 
+        if level == "Easy":
+            return generate_descriptive_question(df)
+
+        elif level == "Medium":
+            col = "BodyTemp"
+            subset = df[df["Gender"] == "Male"]
+            val = subset[col].mean()
+
+            return {
+                "question": "Compute mean BodyTemp for Male (approx)",
+                "type": "numeric",
+                "answer": round(val, 2),
+                "explanation": f"Mean (Male) = {round(val,2)}"
+            }
+
+        else:  # HARD
+            sd1 = df["HeartRate"].std()
+            sd2 = df["BodyTemp"].std()
+
+            correct = "HeartRate" if sd1 > sd2 else "BodyTemp"
+
+            return {
+                "question": "Which variable has higher variability?",
+                "type": "mcq",
+                "options": ["HeartRate", "BodyTemp"],
+                "answer": correct,
+                "explanation": "Compare standard deviations"
+            }
+
+    # ---------------- HYPOTHESIS ----------------
     elif module == "hypothesis":
-        return generate_hypothesis_question(df)
 
+        g1 = df[df["HeartRate"] > 75]["BodyTemp"]
+        g2 = df[df["HeartRate"] <= 75]["BodyTemp"]
+
+        p1 = stats.shapiro(g1)[1]
+        p2 = stats.shapiro(g2)[1]
+        lev_p = stats.levene(g1, g2)[1]
+
+        if p1 > 0.05 and p2 > 0.05:
+            if lev_p > 0.05:
+                test = "Student t-test"
+                stat, pval = stats.ttest_ind(g1, g2, equal_var=True)
+            else:
+                test = "Welch t-test"
+                stat, pval = stats.ttest_ind(g1, g2, equal_var=False)
+        else:
+            test = "Mann-Whitney U"
+            stat, pval = stats.mannwhitneyu(g1, g2)
+
+        if level == "Easy":
+            return {
+                "question": "Which test is appropriate?",
+                "type": "mcq",
+                "options": ["t-test", "Mann-Whitney", "ANOVA"],
+                "answer": "t-test",
+                "explanation": "Two-group comparison"
+            }
+
+        elif level == "Medium":
+            return {
+                "question": "Enter p-value (approx)",
+                "type": "numeric",
+                "answer": round(pval, 4),
+                "explanation": f"Test used: {test}, p-value ≈ {round(pval,4)}"
+            }
+
+        else:
+            return {
+                "question": "Is result statistically significant at 5%?",
+                "type": "mcq",
+                "options": ["Yes", "No"],
+                "answer": "Yes" if pval < 0.05 else "No",
+                "explanation": f"p-value = {round(pval,4)}"
+            }
+
+    # ---------------- REGRESSION ----------------
     else:
-        return generate_regression_question(df)
+
+        x = df["HeartRate"]
+        y = df["BodyTemp"]
+
+        slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+        if level == "Easy":
+            return {
+                "question": "What is the slope of regression?",
+                "type": "numeric",
+                "answer": round(slope, 3),
+                "explanation": f"Slope = {round(slope,3)}"
+            }
+
+        elif level == "Medium":
+            return {
+                "question": "Is relationship positive or negative?",
+                "type": "mcq",
+                "options": ["Positive", "Negative"],
+                "answer": "Positive" if slope > 0 else "Negative",
+                "explanation": "Sign of slope determines direction"
+            }
+
+        else:
+            return {
+                "question": "Is relationship statistically significant?",
+                "type": "mcq",
+                "options": ["Yes", "No"],
+                "answer": "Yes" if p_value < 0.05 else "No",
+                "explanation": f"p-value = {round(p_value,4)}"
+            }
 
 # -----------------------------
 # HEADER
@@ -222,6 +331,19 @@ if st.session_state.answered:
     # NEXT QUESTION
     # -----------------------------
     if st.button("Next Question"):
+
+    # 👉 PROGRESSION LOGIC (ADD THIS)
+    if st.session_state.correct:
+        st.session_state.question_step += 1
+
+        # move to next module after 2 correct answers
+        if st.session_state.question_step >= 2:
+            st.session_state.module_index += 1
+            st.session_state.question_step = 0
+
+            if st.session_state.module_index >= len(modules):
+                st.success("🎓 All modules completed!")
+                st.stop()
 
         st.session_state.question = generate_question(st.session_state.df)
         st.session_state.answered = False
