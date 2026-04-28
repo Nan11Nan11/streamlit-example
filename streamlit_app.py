@@ -235,21 +235,23 @@ if st.session_state.question is None or st.session_state.correct:
     st.session_state.correct = False
 
 q = st.session_state.question
-
+# SAFETY CHECK
+if "type" not in q:
+    q["type"] = "mcq"
 st.write(q["q"])
 
 # Input
-if q["type"] == "numeric":
-    user_ans = st.number_input("Enter Answer", value=0.0)
+if q.get("type", "mcq") == "numeric":
+    user_ans = st.number_input("Enter Answer", value=0.0, step=0.01)
 else:
-    user_ans = st.radio("Select", q["options"])
+    user_ans = st.radio("Select answer:", q["options"])
 
 # -------------------------
 # EVALUATION
 # -------------------------
 if st.button("Submit"):
 
-    if q["type"] == "numeric":
+    if q.get("type", "mcq") == "numeric":
         correct = abs(user_ans - q["answer"]) < 0.05
     else:
         correct = user_ans == q["answer"]
