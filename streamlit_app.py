@@ -4,57 +4,44 @@ import pandas as pd
 from scipy import stats
 import statsmodels.api as sm
 
-# -----------------------------
-# SESSION STATE INIT
-# -----------------------------
-if "df" not in st.session_state:
-    st.session_state.df = generate_dataset()
-
-if "q" not in st.session_state:
-    st.session_state.q = None
-
-if "answered" not in st.session_state:
-    st.session_state.answered = False
-
-if "correct" not in st.session_state:
-    st.session_state.correct = None
 st.set_page_config(page_title="Business Analytics Learning System")
 
-# -----------------------------
-# DATA GENERATION
-# -----------------------------
-import numpy as np
-import pandas as pd
+# =====================================================
+# SESSION STATE INIT (SAFE)
+# =====================================================
+defaults = {
+    "df": None,
+    "q": None,
+    "answered": False,
+    "correct": None,
+    "student_name": "Student"
+}
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
+# =====================================================
+# DATA GENERATION
+# =====================================================
 def generate_dataset(n=120):
 
     np.random.seed()
 
-    # -----------------------------
-    # NUMERIC VARIABLES
-    # -----------------------------
     heart_rate = np.random.normal(72, 8, n)
     age = np.random.randint(18, 65, n)
     income = np.random.normal(50000, 15000, n)
     stress = np.random.normal(5, 2, n)
 
-    # -----------------------------
-    # CATEGORICAL VARIABLES
-    # -----------------------------
     gender = np.random.choice(["Male", "Female"], n)
-    exercise = np.random.choice(["Low", "Medium", "High"], n, p=[0.3, 0.5, 0.2])
-    smoker = np.random.choice(["Yes", "No"], n, p=[0.3, 0.7])
+    exercise = np.random.choice(["Low", "Medium", "High"], n, p=[0.3,0.5,0.2])
+    smoker = np.random.choice(["Yes","No"], n, p=[0.3,0.7])
 
-    # -----------------------------
-    # DEPENDENT VARIABLE (BodyTemp)
-    # Structured relationship (important)
-    # -----------------------------
     body_temp = (
         97
         + 0.03 * heart_rate
         + 0.01 * stress
         - 0.002 * age
-        + np.random.normal(0, 0.3, n)
+        + np.random.normal(0,0.3,n)
     )
 
     df = pd.DataFrame({
@@ -69,43 +56,13 @@ def generate_dataset(n=120):
     })
 
     return df
-# -----------------------------
-# SHOW DATASET (VISIBLE SAMPLE)
-# -----------------------------
-st.subheader("📊 Dataset (Preview)")
-st.dataframe(st.session_state.df.head(15))
-df = st.session_state.df
-st.markdown("""
-### 📘 Context
 
-This dataset represents health and lifestyle indicators of individuals.
 
-- HeartRate: beats per minute  
-- BodyTemp: body temperature (°F)  
-- Age: years  
-- Income: annual income  
-- StressScore: scale 1–10  
-- ExerciseLevel: Low / Medium / High  
-- Smoker: Yes / No  
-
-👉 You will analyze this dataset using statistical tools.
-""")
-
-# -----------------------------
-# DOWNLOAD FULL DATASET
-# -----------------------------
-csv = st.session_state.df.to_csv(index=False).encode('utf-8')
-
-st.download_button(
-    label="⬇️ Download Full Dataset (CSV)",
-    data=csv,
-    file_name=f"{st.session_state.student_name}_dataset.csv",
-    mime="text/csv"
-)
-# -----------------------------
+# =====================================================
 # JAMOVI ENGINES
-# -----------------------------
+# =====================================================
 def run_ttest(df):
+
     g1 = df[df["HeartRate"] > 75]["BodyTemp"]
     g2 = df[df["HeartRate"] <= 75]["BodyTemp"]
 
@@ -134,7 +91,9 @@ def run_ttest(df):
         "levene": lev
     }
 
+
 def run_regression(df):
+
     X = sm.add_constant(df["HeartRate"])
     y = df["BodyTemp"]
     model = sm.OLS(y, X).fit()
@@ -145,11 +104,11 @@ def run_regression(df):
         "r2": model.rsquared
     }
 
-# -----------------------------
+
+# =====================================================
 # JAMOVI OUTPUT UI
-# -----------------------------
-def show_ttest_output(res):
-    st.markdown("### 📊 Jamovi Output (Simplified)")
+# =====================================================
+def show_ttest(res):
     st.code(f"""
 Test: {res['test']}
 p-value: {round(res['pval'],4)}
@@ -158,8 +117,7 @@ Levene p-value: {round(res['levene'],4)}
 Decision: {res['decision']}
 """)
 
-def show_regression_output(res):
-    st.markdown("### 📊 Jamovi Output (Simplified)")
+def show_reg(res):
     st.code(f"""
 Model: BodyTemp ~ HeartRate
 Slope: {round(res['slope'],3)}
@@ -167,124 +125,99 @@ p-value: {round(res['pval'],4)}
 R²: {round(res['r2'],3)}
 """)
 
-# -----------------------------
-# QUESTION GENERATOR (WITH DIFFICULTY)
-# -----------------------------
+
+# =====================================================
+# QUESTION ENGINE (FIXED — USE SAME DATA)
+# =====================================================
 def generate_question(df, difficulty):
 
-    module = np.random.choice(["descriptive", "hypothesis", "regression"])
+    visible_df = df.head(15)   # 🔥 KEY FIX
+
+    module = np.random.choice(["desc","hyp","reg"])
 
     # ---------------- EASY ----------------
     if difficulty == "Easy":
 
-        col = np.random.choice(["HeartRate", "BodyTemp"])
-        mean_val = df[col].mean()
+        col = np.random.choice(["HeartRate","BodyTemp"])
+        val = visible_df[col].mean()
 
         return {
-            "type": "numeric",
-            "question": f"What is the mean of {col}?",
-            "answer": round(mean_val, 2),
-            "explanation": f"Mean = {round(mean_val,2)}",
-            "jamovi": None
+            "type":"numeric",
+            "question":f"What is the mean of {col} (based on displayed data)?",
+            "answer":round(val,2),
+            "explanation":f"Mean = {round(val,2)}",
+            "jamovi":None
         }
 
     # ---------------- MEDIUM ----------------
     elif difficulty == "Medium":
 
-        if module == "hypothesis":
-            res = run_ttest(df)
-
+        if module == "hyp":
+            res = run_ttest(visible_df)
             return {
-                "type": "numeric",
-                "question": "Enter the p-value from the test",
-                "answer": round(res["pval"], 4),
-                "explanation": f"p-value = {round(res['pval'],4)}",
-                "jamovi": ("ttest", res)
+                "type":"numeric",
+                "question":"Enter the p-value",
+                "answer":round(res["pval"],4),
+                "explanation":f"p-value = {round(res['pval'],4)}",
+                "jamovi":("ttest",res)
             }
 
         else:
-            res = run_regression(df)
-
+            res = run_regression(visible_df)
             return {
-                "type": "numeric",
-                "question": "What is the slope of regression?",
-                "answer": round(res["slope"], 3),
-                "explanation": f"Slope = {round(res['slope'],3)}",
-                "jamovi": ("regression", res)
+                "type":"numeric",
+                "question":"What is the slope?",
+                "answer":round(res["slope"],3),
+                "explanation":f"Slope = {round(res['slope'],3)}",
+                "jamovi":("reg",res)
             }
 
     # ---------------- HARD ----------------
     else:
 
-        if module == "hypothesis":
-            res = run_ttest(df)
-
+        if module == "hyp":
+            res = run_ttest(visible_df)
             return {
-                "type": "mcq",
-                "question": "What is the correct conclusion?",
-                "options": [
-                    "Reject H0",
-                    "Fail to Reject H0"
-                ],
-                "answer": res["decision"],
-                "explanation": f"Decision based on p-value = {round(res['pval'],4)}",
-                "jamovi": ("ttest", res)
+                "type":"mcq",
+                "question":"What is the correct conclusion?",
+                "options":["Reject H0","Fail to Reject H0"],
+                "answer":res["decision"],
+                "explanation":f"Decision based on p-value {round(res['pval'],4)}",
+                "jamovi":("ttest",res)
             }
 
         else:
-            res = run_regression(df)
-
+            res = run_regression(visible_df)
             return {
-                "type": "mcq",
-                "question": "Is HeartRate a significant predictor?",
-                "options": [
-                    "Yes",
-                    "No"
-                ],
-                "answer": "Yes" if res["pval"] < 0.05 else "No",
-                "explanation": f"p-value = {round(res['pval'],4)}",
-                "jamovi": ("regression", res)
+                "type":"mcq",
+                "question":"Is HeartRate significant?",
+                "options":["Yes","No"],
+                "answer":"Yes" if res["pval"]<0.05 else "No",
+                "explanation":f"p-value = {round(res['pval'],4)}",
+                "jamovi":("reg",res)
             }
 
-# -----------------------------
-# SESSION STATE
-# -----------------------------
-if "df" not in st.session_state:
+
+# =====================================================
+# INITIAL DATA LOAD
+# =====================================================
+if st.session_state.df is None:
     st.session_state.df = generate_dataset()
 
-if st.button("🔄 Start New Session"):
-    st.session_state.df = generate_dataset()
-    st.session_state.question = None
-    st.session_state.answered = False
-    st.session_state.correct = None
-    st.rerun()
 
-# -----------------------------
+# =====================================================
 # UI
-# -----------------------------
+# =====================================================
 st.title("📊 Business Analytics Learning System")
 
-difficulty = st.selectbox("Select Difficulty", ["Easy", "Medium", "Hard"])
-# -----------------------------
-# SHOW DATA
-# -----------------------------
-st.subheader("Dataset")
-st.dataframe(st.session_state.df.head(15))
+# Student name
+name = st.text_input("Student Name", st.session_state.student_name)
+st.session_state.student_name = name
 
-# -----------------------------
-# DOWNLOAD BUTTON
-# -----------------------------
-csv = st.session_state.df.to_csv(index=False).encode('utf-8')
+# Difficulty
+difficulty = st.selectbox("Difficulty", ["Easy","Medium","Hard"])
 
-st.download_button(
-    label="⬇️ Download Full Dataset (CSV)",
-    data=csv,
-    file_name="dataset.csv",
-    mime="text/csv"
-)
-# -----------------------------
-# NEW SESSION
-# -----------------------------
+# New session
 if st.button("🔄 Start New Session"):
     st.session_state.df = generate_dataset()
     st.session_state.q = None
@@ -292,61 +225,71 @@ if st.button("🔄 Start New Session"):
     st.session_state.correct = None
     st.rerun()
 
-# -----------------------------
-# SHOW DATA
-# -----------------------------
-st.subheader("Dataset")
+# =====================================================
+# DATA DISPLAY
+# =====================================================
+st.subheader("📊 Dataset (Preview)")
 st.dataframe(st.session_state.df.head(15))
 
-# -----------------------------
-# GENERATE QUESTION ONCE
-# -----------------------------
+# Download
+csv = st.session_state.df.to_csv(index=False).encode("utf-8")
+st.download_button(
+    "⬇️ Download Full Dataset",
+    csv,
+    file_name=f"{st.session_state.student_name}_dataset.csv",
+    mime="text/csv"
+)
+
+# Context
+st.markdown("""
+### 📘 Context
+Health and lifestyle dataset used for statistical analysis.
+""")
+
+# =====================================================
+# GENERATE QUESTION
+# =====================================================
 if st.session_state.q is None:
     st.session_state.q = generate_question(st.session_state.df, difficulty)
 
 q = st.session_state.q
 
-# -----------------------------
-# SHOW JAMOVI OUTPUT (IF ANY)
-# -----------------------------
-if q["jamovi"] is not None:
-    kind, res = q["jamovi"]
-
-    if kind == "ttest":
-        show_ttest_output(res)
+# Jamovi output
+if q["jamovi"]:
+    kind,res = q["jamovi"]
+    st.markdown("### 📊 Jamovi Output")
+    if kind=="ttest":
+        show_ttest(res)
     else:
-        show_regression_output(res)
+        show_reg(res)
 
-# -----------------------------
-# QUESTION
-# -----------------------------
+# =====================================================
+# QUESTION UI
+# =====================================================
 st.subheader("Current Question")
 st.write(q["question"])
 
-# -----------------------------
-# INPUT
-# -----------------------------
-if q["type"] == "numeric":
-    user_ans = st.number_input("Enter answer", value=0.0, step=0.01)
+if q["type"]=="numeric":
+    user_ans = st.number_input("Answer", value=0.0, step=0.01)
 else:
-    user_ans = st.radio("Select answer", q["options"])
+    user_ans = st.radio("Select", q["options"])
 
-# -----------------------------
+# =====================================================
 # SUBMIT
-# -----------------------------
+# =====================================================
 if st.button("Submit") and not st.session_state.answered:
 
-    if q["type"] == "numeric":
-        correct = abs(user_ans - q["answer"]) <= 0.02
+    if q["type"]=="numeric":
+        correct = abs(user_ans - q["answer"]) <= 0.05   # relaxed tolerance
     else:
         correct = user_ans == q["answer"]
 
     st.session_state.correct = correct
     st.session_state.answered = True
 
-# -----------------------------
+# =====================================================
 # RESULT
-# -----------------------------
+# =====================================================
 if st.session_state.answered:
 
     if st.session_state.correct:
@@ -356,17 +299,14 @@ if st.session_state.answered:
 
     st.write(f"Your answer: {user_ans}")
 
-    if q["type"] == "numeric":
-        st.write(f"Accepted range: {round(q['answer']-0.02,3)} to {round(q['answer']+0.02,3)}")
+    if q["type"]=="numeric":
+        st.write(f"Correct: {q['answer']}")
     else:
-        st.write(f"Correct answer: {q['answer']}")
+        st.write(f"Correct: {q['answer']}")
 
     st.markdown("### 🔍 Explanation")
     st.write(q["explanation"])
 
-    # -----------------------------
-    # NEXT QUESTION
-    # -----------------------------
     if st.button("Next Question"):
         st.session_state.q = generate_question(st.session_state.df, difficulty)
         st.session_state.answered = False
