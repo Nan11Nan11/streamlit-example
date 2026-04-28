@@ -12,6 +12,7 @@ if "question_step" not in st.session_state:
 # -----------------------------
 # SESSION INIT
 # -----------------------------
+
 if "df" not in st.session_state:
     st.session_state.df = None
 if "question" not in st.session_state:
@@ -255,7 +256,10 @@ def generate_question(df):
 st.title("📊 Business Analytics Learning System")
 
 student = st.text_input("Student Name", "ABC123")
-
+difficulty = st.selectbox(
+    "Select Difficulty",
+    ["Easy", "Medium", "Hard"]
+)
 # -----------------------------
 # START SESSION
 # -----------------------------
@@ -292,20 +296,25 @@ if st.session_state.question:
     st.subheader("Current Question")
     st.write(q["question"])
 
-    user_ans = st.number_input("Enter answer", value=0.0)
+    if q["type"] == "numeric":
+        user_ans = st.number_input("Enter answer", value=0.0)
+    else:
+        user_ans = st.radio("Select answer", q["options"])
 
     # -----------------------------
     # SUBMIT
     # -----------------------------
     if st.button("Submit"):
 
-        tol = 0.02
-
-        st.session_state.correct = abs(user_ans - q["answer"]) <= tol
+        if q["type"] == "numeric":
+            tol = 0.02
+            st.session_state.correct = abs(user_ans - q["answer"]) <= tol
+        else:
+            st.session_state.correct = user_ans == q["answer"]
+    
         st.session_state.answered = True
-
-        st.rerun()
-
+    st.rerun()
+    st.session_state.user_ans = user_ans
 # -----------------------------
 # RESULT
 # -----------------------------
@@ -326,7 +335,7 @@ if st.session_state.answered:
     st.markdown("### 🔍 Explanation")
 
     st.write(q["explanation"])
-
+st.write(f"Your answer: {st.session_state.user_ans}")
     # -----------------------------
     # NEXT QUESTION
     # -----------------------------
