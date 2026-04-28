@@ -137,13 +137,28 @@ def generate_regression_question():
     x = df["HeartRate"]
     y = df["BodyTemp"]
 
-    slope, _, _, p_value, _ = stats.linregress(x, y)
+    import statsmodels.api as sm
+
+    X = sm.add_constant(df["HeartRate"])
+    y = df["BodyTemp"]
+    
+    model = sm.OLS(y, X).fit()
+    slope = model.params["HeartRate"]
+    p_value = model.pvalues["HeartRate"]
 
     return {
         "question": "What is the slope of regression: BodyTemp ~ HeartRate?",
         "type": "numeric",
         "answer": round(slope, 3),
-        "explanation": f"Slope = {round(slope,3)}, p-value = {round(p_value,4)}"
+        "explanation": f"""
+        Using OLS regression (same as Jamovi):
+        
+        Slope ≈ {round(slope,3)}
+        p-value ≈ {round(p_value,4)}
+        
+        Interpretation:
+        Each 1 unit increase in HeartRate increases BodyTemp by ~{round(slope,3)}.
+        """
     }
 
 # -----------------------------
