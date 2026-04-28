@@ -251,13 +251,13 @@ if st.session_state.answered:
             st.session_state.ai_explanation = "⚠️ Explanation temporarily unavailable. Please retry."
     
     st.write(st.session_state.ai_explanation)
-        # 🔥 AI explanation for hypothesis
-        if "context" in q:
-            explanation = ai_explain(q["context"])
-        else:
-            explanation = q["explanation"]
-    
-        st.write(explanation)
+    # 🔥 AI explanation for hypothesis
+    if "context" in q:
+        explanation = ai_explain(q["context"])
+    else:
+        explanation = q["explanation"]
+
+    st.write(explanation)
 
     # -----------------------------
     # NEXT QUESTION
